@@ -231,24 +231,28 @@ function OnboardingContent() {
               </div>
 
               {/* Quick demo links */}
-              <div style={{ marginTop: 16, textAlign: 'center' }}>
-                <p style={{ fontFamily: MONO, fontSize: 9, color: C.ink4, letterSpacing: '0.07em', marginBottom: 10 }}>
+              <div style={{ marginTop: 20, paddingTop: 18, borderTop: `1px solid ${C.border}`, textAlign: 'center' }}>
+                <p style={{ fontFamily: MONO, fontSize: 10, color: C.ink2, letterSpacing: '0.08em', marginBottom: 12, fontWeight: 600 }}>
                   或者快速体验这些品牌 →
                 </p>
-                <div style={{ display: 'flex', gap: 7, justifyContent: 'center', flexWrap: 'wrap' as const }}>
+                <div style={{ display: 'flex', gap: 8, justifyContent: 'center', flexWrap: 'wrap' as const }}>
                   {[
                     { label: 'ELN World', url: 'https://elnworld.xyz/' },
                     { label: 'Notion', url: 'https://notion.so' },
                     { label: 'Linear', url: 'https://linear.app' },
                   ].map(d => (
-                    <button key={d.label} onClick={() => setUrl(d.url)} style={{
-                      padding: '5px 13px', borderRadius: 99, cursor: 'pointer',
-                      border: `1px solid ${C.border2}`,
-                      background: url === d.url ? C.al : '#fff',
-                      color: url === d.url ? C.accent : C.ink3,
-                      fontFamily: MONO, fontSize: 10, letterSpacing: '0.04em',
-                      transition: 'all 0.15s',
-                    }}>
+                    <button key={d.label} onClick={() => setUrl(d.url)}
+                      style={{
+                        padding: '7px 18px', borderRadius: 99, cursor: 'pointer',
+                        border: `1.5px solid ${url === d.url ? C.accent : 'rgba(28,58,46,0.3)'}`,
+                        background: url === d.url ? C.accent : C.al,
+                        color: url === d.url ? '#fff' : C.accent,
+                        fontFamily: MONO, fontSize: 12, letterSpacing: '0.05em',
+                        fontWeight: 600, transition: 'all 0.15s',
+                      }}
+                      onMouseEnter={e => { if (url !== d.url) { e.currentTarget.style.background = C.al2; e.currentTarget.style.borderColor = C.accent }}}
+                      onMouseLeave={e => { if (url !== d.url) { e.currentTarget.style.background = C.al; e.currentTarget.style.borderColor = 'rgba(28,58,46,0.3)' }}}
+                    >
                       {d.label}
                     </button>
                   ))}
