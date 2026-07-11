@@ -230,7 +230,32 @@ function OnboardingContent() {
                 </button>
               </div>
 
-              <p style={{ fontFamily: MONO, fontSize: 9, color: C.ink4, textAlign: 'center', letterSpacing: '0.07em' }}>
+              {/* Quick demo links */}
+              <div style={{ marginTop: 16, textAlign: 'center' }}>
+                <p style={{ fontFamily: MONO, fontSize: 9, color: C.ink4, letterSpacing: '0.07em', marginBottom: 10 }}>
+                  或者快速体验这些品牌 →
+                </p>
+                <div style={{ display: 'flex', gap: 7, justifyContent: 'center', flexWrap: 'wrap' as const }}>
+                  {[
+                    { label: 'ELN World', url: 'https://elnworld.xyz/' },
+                    { label: 'Notion', url: 'https://notion.so' },
+                    { label: 'Linear', url: 'https://linear.app' },
+                  ].map(d => (
+                    <button key={d.label} onClick={() => setUrl(d.url)} style={{
+                      padding: '5px 13px', borderRadius: 99, cursor: 'pointer',
+                      border: `1px solid ${C.border2}`,
+                      background: url === d.url ? C.al : '#fff',
+                      color: url === d.url ? C.accent : C.ink3,
+                      fontFamily: MONO, fontSize: 10, letterSpacing: '0.04em',
+                      transition: 'all 0.15s',
+                    }}>
+                      {d.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <p style={{ fontFamily: MONO, fontSize: 9, color: C.ink4, textAlign: 'center', letterSpacing: '0.07em', marginTop: 14 }}>
                 支持任意网站 · 数据仅用于生成品牌档案
               </p>
             </div>
