@@ -20,12 +20,62 @@ export interface TodoItem {
   createdAt: string
 }
 
+export interface RepurposedContent {
+  id: string
+  projectId: string
+  input: string
+  youtube: string
+  instagram: string
+  tiktok: string
+  twitter: string
+  createdAt: string
+}
+
+export interface CommunityState {
+  telegramBotToken: string
+  telegramGroupId: string
+  connected: boolean
+  lastDigest: string | null
+  digestUpdatedAt: string | null
+}
+
+export interface Asset {
+  id: string
+  projectId: string
+  name: string
+  type: 'image' | 'video' | 'text'
+  previewUrl: string
+  tags: string[]
+  pipAnalysis: string
+  platforms: string[]
+  createdAt: string
+  analyzing: boolean
+}
+
+export interface Comment {
+  id: string
+  projectId: string
+  platform: string
+  author: string
+  text: string
+  sentiment: 'positive' | 'negative' | 'question' | 'spam' | 'pending'
+  pipReply: string
+  status: 'pending' | 'replied' | 'ignored'
+  createdAt: string
+}
+
 interface MingStore {
   projects: Project[]
   activeProjectId: string | null
   activeThreadId: string | null
   todos: TodoItem[]
   extractedCards: ExtractedCard[]
+  repurposedContent: RepurposedContent[]
+  communityState: Record<string, CommunityState>
+  touredProjects: string[]
+  lang: 'en' | 'zh'
+  assets: Asset[]
+  comments: Comment[]
 
   // Project actions
   addProject: (project: Project) => void
@@ -47,7 +97,7 @@ interface MingStore {
   addPost: (projectId: string, post: Post) => void
   updatePost: (projectId: string, postId: string, updates: Partial<Post>) => void
 
-  // Lab actions
+  // Knowledge doc actions
   addKnowledgeDoc: (projectId: string, doc: import('./brand').KnowledgeDoc) => void
 
   // Todo actions
@@ -58,6 +108,28 @@ interface MingStore {
   // Extracted cards actions
   addExtractedCards: (cards: ExtractedCard[]) => void
   clearExtractedCards: (projectId: string, threadId: string) => void
+
+  // Repurposed content actions
+  addRepurposedContent: (content: RepurposedContent) => void
+
+  // Community actions
+  setCommunityState: (projectId: string, state: Partial<CommunityState>) => void
+
+  // Tour
+  completeTour: (projectId: string) => void
+
+  // Language
+  setLang: (lang: 'en' | 'zh') => void
+
+  // Asset actions
+  addAsset: (asset: Asset) => void
+  updateAsset: (id: string, updates: Partial<Asset>) => void
+  removeAsset: (id: string) => void
+
+  // Comment actions
+  addComment: (comment: Comment) => void
+  updateComment: (id: string, updates: Partial<Comment>) => void
+  addMockComments: (projectId: string) => void
 }
 
 export const useMingStore = create<MingStore>()(
@@ -68,6 +140,12 @@ export const useMingStore = create<MingStore>()(
       activeThreadId: null,
       todos: [],
       extractedCards: [],
+      repurposedContent: [],
+      communityState: {},
+      touredProjects: [],
+      lang: 'en',
+      assets: [],
+      comments: [],
 
       addProject: (project) =>
         set((s) => ({
@@ -182,13 +260,49 @@ export const useMingStore = create<MingStore>()(
         set((s) => ({
           projects: s.projects.map((p) =>
             p.id === projectId
-              ? { ...p, brand: { ...p.brand, knowledgeDocs: [...p.brand.knowledgeDocs, doc] } }
+              ? { ...p, brand: { ...p.brand, knowledgeDocs: [...(p.brand.knowledgeDocs ?? []), doc] } }
               : p
           ),
         })),
+
+      addRepurposedContent: (content) =>
+        set(s => ({ repurposedContent: [content, ...s.repurposedContent].slice(0, 50) })),
+
+      setCommunityState: (projectId, state) =>
+        set(s => ({
+          communityState: {
+            ...s.communityState,
+            [projectId]: { ...s.communityState[projectId], ...state },
+          }
+        })),
+
+      completeTour: (projectId) =>
+        set(s => ({ touredProjects: s.touredProjects.includes(projectId) ? s.touredProjects : [...s.touredProjects, projectId] })),
+
+      setLang: (lang) => set({ lang }),
+
+      addAsset: (asset) => set(s => ({ assets: [asset, ...s.assets] })),
+      updateAsset: (id, updates) => set(s => ({ assets: s.assets.map(a => a.id === id ? { ...a, ...updates } : a) })),
+      removeAsset: (id) => set(s => ({ assets: s.assets.filter(a => a.id !== id) })),
+
+      addComment: (comment) => set(s => ({ comments: [comment, ...s.comments] })),
+      updateComment: (id, updates) => set(s => ({ comments: s.comments.map(c => c.id === id ? { ...c, ...updates } : c) })),
+      addMockComments: (projectId) => set(s => {
+        const mock: Comment[] = [
+          { id: `c-${Date.now()}-1`, projectId, platform: 'youtube', author: 'TechViewer88', text: 'This video changed my entire workflow! Can you do a follow-up on advanced settings?', sentiment: 'positive', pipReply: 'Thank you so much! A follow-up on advanced settings is actually in the works — stay tuned! 🙌', status: 'pending', createdAt: new Date(Date.now() - 3600000).toISOString() },
+          { id: `c-${Date.now()}-2`, projectId, platform: 'instagram', author: 'creative_luna', text: 'Love the aesthetic but the audio quality could be better 🙏', sentiment: 'negative', pipReply: 'Thanks for the honest feedback, Luna! We\'re upgrading our audio setup for the next shoot. Appreciate you letting us know!', status: 'pending', createdAt: new Date(Date.now() - 7200000).toISOString() },
+          { id: `c-${Date.now()}-3`, projectId, platform: 'tiktok', author: 'user_k9x2', text: 'BUY FOLLOWERS CHEAP DM ME', sentiment: 'spam', pipReply: '', status: 'pending', createdAt: new Date(Date.now() - 1800000).toISOString() },
+          { id: `c-${Date.now()}-4`, projectId, platform: 'twitter', author: 'designmind_', text: 'What software do you use for the animations in your videos?', sentiment: 'question', pipReply: 'Great question! We use After Effects for complex animations and CapCut for quick mobile edits. Happy to do a full tutorial if there\'s interest!', status: 'pending', createdAt: new Date(Date.now() - 5400000).toISOString() },
+          { id: `c-${Date.now()}-5`, projectId, platform: 'youtube', author: 'maria_creates', text: 'Been following you for 2 years and every video gets better. Keep it up!!', sentiment: 'positive', pipReply: 'Two years — you\'re basically family at this point 😄 Thank you so much for the continued support, Maria!', status: 'pending', createdAt: new Date(Date.now() - 10800000).toISOString() },
+          { id: `c-${Date.now()}-6`, projectId, platform: 'instagram', author: 'skeptic_404', text: 'This is just recycled content from your last post tbh', sentiment: 'negative', pipReply: 'Fair point — we explored a similar theme but dug deeper this time. Would love to hear what topics you\'d like us to cover fresh!', status: 'pending', createdAt: new Date(Date.now() - 14400000).toISOString() },
+        ]
+        const existing = s.comments.filter(c => c.projectId === projectId)
+        if (existing.length > 0) return {}
+        return { comments: [...mock, ...s.comments] }
+      }),
     }),
     {
-      name: 'ming-store',
+      name: 'chirp-store',
     }
   )
 )

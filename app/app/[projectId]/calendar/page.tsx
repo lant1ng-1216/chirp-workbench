@@ -1,44 +1,52 @@
 'use client'
 import { useState } from 'react'
-import { useParams, useRouter } from 'next/navigation'
+import { useParams } from 'next/navigation'
 import { useMingStore } from '@/lib/store'
+import { t } from '@/lib/i18n'
 import { ALL_PLATFORMS } from '@/lib/brand'
 import type { Post } from '@/lib/brand'
 
 const C = {
-  bg: '#faf9f7', bg2: '#f4f2ee', bg3: '#edeae4',
-  ink: '#1a1916', ink2: '#4a4844', ink3: '#9a9894', ink4: '#c8c6c0',
-  accent: '#1c3a2e', al: 'rgba(28,58,46,0.08)', al2: 'rgba(28,58,46,0.15)',
-  gold: '#7a6020', gl: '#f5f0e8',
-  border: 'rgba(26,25,22,0.08)', border2: 'rgba(26,25,22,0.14)',
-  shadow: '0 1px 3px rgba(26,25,22,0.06),0 3px 10px rgba(26,25,22,0.04)',
-  sfloat: '0 8px 32px rgba(26,25,22,0.14)',
-  green: '#4a9e6a',
+  bg: '#ffffff', bg1: '#f9fafb', bg2: '#f3f4f6',
+  ink: '#111827', ink2: '#374151', ink3: '#6b7280', ink4: '#9ca3af',
+  accent: '#3b82f6', al: 'rgba(59,130,246,0.08)', al2: 'rgba(59,130,246,0.15)',
+  border: 'rgba(17,24,39,0.08)', border2: 'rgba(17,24,39,0.14)',
+  shadow: '0 1px 3px rgba(17,24,39,0.06),0 3px 10px rgba(17,24,39,0.04)',
+  green: '#10b981',
 }
-const SERIF = "'Noto Serif SC', Georgia, serif"
-const MONO  = "'Space Mono', monospace"
-const SANS  = "'Noto Sans SC', 'PingFang SC', sans-serif"
+const SANS = "'Inter', -apple-system, sans-serif"
+const MONO = "'Space Mono', monospace"
 
-const STATUS_CFG = {
-  draft:     { label: '草稿',  color: C.ink4 },
-  scheduled: { label: '排期中', color: C.gold },
-  published: { label: '已发布', color: C.green },
-}
+type Lang = 'en' | 'zh'
+
+const STATUS_CFG = (lang: Lang) => ({
+  draft:     { labelKey: 'calendar.status.draft', color: C.ink4  },
+  scheduled: { labelKey: 'calendar.status.sched', color: '#f59e0b' },
+  published: { labelKey: 'calendar.status.pub',   color: C.green  },
+})
 
 function getPlatform(id: string) { return ALL_PLATFORMS.find(p => p.id === id) }
 
+function getMonthName(month: number, lang: Lang) {
+  return new Date(2024, month, 1).toLocaleDateString(lang === 'zh' ? 'zh-CN' : 'en-US', { month: 'long' })
+}
+
+function getWeekdays(lang: Lang) {
+  if (lang === 'zh') return ['一', '二', '三', '四', '五', '六', '日']
+  return ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
+}
+
 export default function CalendarPage() {
   const params    = useParams()
-  const router    = useRouter()
   const projectId = params.projectId as string
-  const { projects, updatePost } = useMingStore()
+  const { projects, updatePost, lang } = useMingStore()
   const project = projects.find(p => p.id === projectId)
 
   const today = new Date()
   const [year,  setYear]  = useState(today.getFullYear())
   const [month, setMonth] = useState(today.getMonth())
-  const [selectedDay,   setSelectedDay]   = useState<number | null>(null)
-  const [selectedPost,  setSelectedPost]  = useState<Post | null>(null)
+  const [selectedDay,  setSelectedDay]  = useState<number | null>(null)
+  const [selectedPost, setSelectedPost] = useState<Post | null>(null)
   const [copied, setCopied] = useState(false)
 
   const firstDay    = new Date(year, month, 1).getDay()
@@ -58,6 +66,7 @@ export default function CalendarPage() {
   const nextMonth = () => { if (month === 11) { setYear(y => y + 1); setMonth(0) } else setMonth(m => m + 1); setSelectedDay(null); setSelectedPost(null) }
 
   const dayPosts = selectedDay ? getPostsForDay(selectedDay) : []
+  const monthPostCount = posts.filter(p => (p.scheduledAt || p.createdAt)?.startsWith(`${year}-${String(month+1).padStart(2,'0')}`)).length
 
   const copyContent = async (content: string) => {
     await navigator.clipboard.writeText(content)
@@ -65,23 +74,22 @@ export default function CalendarPage() {
     setTimeout(() => setCopied(false), 1800)
   }
 
+  const statusCfg = STATUS_CFG(lang as Lang)
+  const weekdays  = getWeekdays(lang as Lang)
+
   return (
-    <div style={{ height: '100%', display: 'flex', flexDirection: 'column', background: C.bg, fontFamily: SANS }}>
+    <div style={{ height: '100%', display: 'flex', flexDirection: 'column', background: C.bg1, fontFamily: SANS }}>
 
       {/* Header */}
       <div style={{ height: 52, display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 20px', borderBottom: `1px solid ${C.border}`, background: C.bg, flexShrink: 0 }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-          <button onClick={prevMonth} style={{ background: 'none', border: 'none', cursor: 'pointer', color: C.ink4, fontSize: 16, padding: '0 4px', lineHeight: 1 }}>‹</button>
-          <span style={{ fontFamily: SERIF, fontSize: 15, fontWeight: 600, color: C.ink }}>{year}年{month + 1}月</span>
-          <button onClick={nextMonth} style={{ background: 'none', border: 'none', cursor: 'pointer', color: C.ink4, fontSize: 16, padding: '0 4px', lineHeight: 1 }}>›</button>
-        </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-          <span style={{ fontFamily: MONO, fontSize: 9, color: C.ink4, letterSpacing: '0.08em', alignSelf: 'center' }}>本月 {posts.filter(p => (p.scheduledAt || p.createdAt)?.startsWith(`${year}-${String(month+1).padStart(2,'0')}`)).length} 条</span>
-          <button onClick={() => router.push(`/app/${projectId}?prompt=帮我排一下本月内容日历`)} style={{
-            padding: '5px 13px', borderRadius: 7, border: `1px solid ${C.accent}`,
-            background: C.accent, color: '#fff', fontFamily: SERIF, fontSize: 12, cursor: 'pointer',
-          }}>+ 让鸣排期</button>
+          <button onClick={prevMonth} style={{ background: 'none', border: 'none', cursor: 'pointer', color: C.ink4, fontSize: 18, padding: '0 4px', lineHeight: 1 }}>‹</button>
+          <span style={{ fontFamily: SANS, fontWeight: 600, fontSize: 15, color: C.ink }}>{getMonthName(month, lang as Lang)} {year}</span>
+          <button onClick={nextMonth} style={{ background: 'none', border: 'none', cursor: 'pointer', color: C.ink4, fontSize: 18, padding: '0 4px', lineHeight: 1 }}>›</button>
         </div>
+        <span style={{ fontFamily: MONO, fontSize: 9, color: C.ink4 }}>
+          {t('calendar.posts.month', lang).replace('{n}', String(monthPostCount))}
+        </span>
       </div>
 
       <div style={{ flex: 1, display: 'flex', overflow: 'hidden' }}>
@@ -90,8 +98,8 @@ export default function CalendarPage() {
         <div style={{ flex: 1, overflowY: 'auto', padding: '14px 16px' }}>
           {/* Day headers */}
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: 4, marginBottom: 4 }}>
-            {['一', '二', '三', '四', '五', '六', '日'].map(d => (
-              <div key={d} style={{ textAlign: 'center', fontFamily: MONO, fontSize: 9, color: C.ink4, letterSpacing: '0.08em', padding: '4px 0' }}>{d}</div>
+            {weekdays.map(d => (
+              <div key={d} style={{ textAlign: 'center', fontFamily: MONO, fontSize: 9, color: C.ink4, padding: '4px 0' }}>{d}</div>
             ))}
           </div>
 
@@ -100,22 +108,17 @@ export default function CalendarPage() {
             {cells.map((day, i) => {
               if (!day) return <div key={`e-${i}`} />
               const dp = getPostsForDay(day)
-              const isToday   = day === today.getDate() && month === today.getMonth() && year === today.getFullYear()
+              const isToday    = day === today.getDate() && month === today.getMonth() && year === today.getFullYear()
               const isSelected = day === selectedDay
               return (
                 <div key={day} onClick={() => { setSelectedDay(day); setSelectedPost(null) }} style={{
                   minHeight: 76, padding: 7, borderRadius: 9, cursor: 'pointer',
-                  border: `1.5px solid ${isSelected ? C.accent : isToday ? 'rgba(28,58,46,0.3)' : C.border}`,
-                  background: isSelected ? C.al : isToday ? C.gl : '#fff',
+                  border: `1.5px solid ${isSelected ? C.accent : isToday ? C.al2 : C.border}`,
+                  background: isSelected ? C.al : isToday ? 'rgba(59,130,246,0.03)' : '#fff',
                   boxShadow: isSelected ? `0 0 0 2px ${C.al2}` : C.shadow,
                   transition: 'all 0.15s',
                 }}>
-                  <div style={{
-                    fontFamily: MONO, fontSize: 11,
-                    color: isToday ? C.accent : C.ink3,
-                    fontWeight: isToday ? 700 : 400,
-                    marginBottom: 4,
-                  }}>{day}</div>
+                  <div style={{ fontFamily: MONO, fontSize: 11, color: isToday ? C.accent : C.ink3, fontWeight: isToday ? 700 : 400, marginBottom: 4 }}>{day}</div>
                   {dp.slice(0, 3).map(post => {
                     const pl = getPlatform(post.platform)
                     return (
@@ -125,7 +128,7 @@ export default function CalendarPage() {
                         borderLeft: `2px solid ${pl?.color || C.accent}`,
                         overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
                         fontFamily: SANS, color: C.ink2,
-                      }}>{pl?.icon} {post.title.slice(0, 7)}</div>
+                      }}>● {post.title.slice(0, 7)}</div>
                     )
                   })}
                   {dp.length > 3 && <div style={{ fontFamily: MONO, fontSize: 8, color: C.ink4 }}>+{dp.length - 3}</div>}
@@ -137,12 +140,12 @@ export default function CalendarPage() {
           {/* Empty state */}
           {posts.length === 0 && (
             <div style={{ textAlign: 'center', padding: '48px 20px' }}>
-              <div style={{ width: 44, height: 44, borderRadius: 12, background: C.al, display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px', fontFamily: SERIF, fontSize: 20, color: C.accent }}>历</div>
-              <p style={{ fontFamily: SERIF, fontWeight: 300, fontSize: 14, color: C.ink3, lineHeight: 1.9, marginBottom: 16 }}>日历还没有内容<br />告诉鸣帮你规划本月发布计划</p>
-              <button onClick={() => router.push(`/app/${projectId}?prompt=帮我排一下本月内容日历`)} style={{
-                padding: '8px 18px', borderRadius: 8, border: 'none',
-                background: C.accent, color: '#fff', fontFamily: SERIF, fontSize: 13, cursor: 'pointer',
-              }}>让鸣来排期 →</button>
+              <div style={{ color: C.ink4, display: 'flex', justifyContent: 'center', marginBottom: 16 }}>
+                <svg width="40" height="40" fill="none" stroke="currentColor" strokeWidth="1.2" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>
+              </div>
+              <p style={{ fontFamily: SANS, fontSize: 14, color: C.ink3, lineHeight: 1.8 }}>
+                {t('calendar.empty', lang).split('\n').map((line, i) => <span key={i}>{line}{i === 0 && <br />}</span>)}
+              </p>
             </div>
           )}
         </div>
@@ -152,25 +155,21 @@ export default function CalendarPage() {
           <div style={{ width: 280, borderLeft: `1px solid ${C.border}`, background: C.bg, display: 'flex', flexDirection: 'column', flexShrink: 0, overflowY: 'auto' }}>
             <div style={{ padding: '14px 16px', borderBottom: `1px solid ${C.border}`, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
               <div>
-                <div style={{ fontFamily: SERIF, fontSize: 14, fontWeight: 600, color: C.ink }}>{month + 1}月{selectedDay}日</div>
-                <div style={{ fontFamily: MONO, fontSize: 9, color: C.ink4, letterSpacing: '0.06em', marginTop: 2 }}>{dayPosts.length} 条内容</div>
+                <div style={{ fontFamily: SANS, fontWeight: 600, fontSize: 14, color: C.ink }}>{getMonthName(month, lang as Lang)} {selectedDay}</div>
+                <div style={{ fontFamily: MONO, fontSize: 9, color: C.ink4, marginTop: 2 }}>{dayPosts.length} {lang === 'zh' ? '篇内容' : `post${dayPosts.length !== 1 ? 's' : ''}`}</div>
               </div>
-              <button onClick={() => setSelectedDay(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: C.ink4, fontSize: 18, lineHeight: 1 }}>×</button>
+              <button onClick={() => setSelectedDay(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: C.ink4, fontSize: 20, lineHeight: 1 }}>×</button>
             </div>
 
             {dayPosts.length === 0 ? (
               <div style={{ padding: '32px 16px', textAlign: 'center' }}>
-                <p style={{ fontFamily: SERIF, fontWeight: 300, fontSize: 13, color: C.ink4, lineHeight: 1.8 }}>当天暂无内容</p>
-                <button onClick={() => router.push(`/app/${projectId}?prompt=帮我给${month+1}月${selectedDay}日写一篇内容`)} style={{
-                  marginTop: 12, padding: '6px 14px', borderRadius: 7, border: `1px solid ${C.accent}`,
-                  background: 'transparent', color: C.accent, fontFamily: SERIF, fontSize: 12, cursor: 'pointer',
-                }}>让鸣创作</button>
+                <p style={{ fontFamily: SANS, fontSize: 13, color: C.ink4, lineHeight: 1.8 }}>{t('calendar.noday', lang)}</p>
               </div>
             ) : (
               <div style={{ padding: '10px 12px', display: 'flex', flexDirection: 'column', gap: 8 }}>
                 {dayPosts.map(post => {
                   const pl = getPlatform(post.platform)
-                  const sc = STATUS_CFG[post.status]
+                  const sc = statusCfg[post.status]
                   const isActive = selectedPost?.id === post.id
                   return (
                     <div key={post.id}>
@@ -181,18 +180,18 @@ export default function CalendarPage() {
                         boxShadow: C.shadow, transition: 'all 0.15s',
                       }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 5 }}>
-                          <span style={{ fontSize: 13 }}>{pl?.icon}</span>
+                          <span style={{ fontSize: 13, color: pl?.color || C.accent }}>●</span>
                           <span style={{ fontFamily: SANS, fontSize: 11, fontWeight: 500, color: C.ink, flex: 1 }}>{pl?.name}</span>
-                          <span style={{ fontFamily: MONO, fontSize: 9, color: sc.color }}>{sc.label}</span>
+                          <span style={{ fontFamily: MONO, fontSize: 9, color: sc.color }}>{t(sc.labelKey, lang)}</span>
                         </div>
-                        <div style={{ fontFamily: SERIF, fontWeight: 300, fontSize: 12, color: C.ink2, lineHeight: 1.7, overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: isActive ? 999 : 2, WebkitBoxOrient: 'vertical' as const }}>
+                        <div style={{ fontFamily: SANS, fontSize: 12, color: C.ink2, lineHeight: 1.7, overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: isActive ? 999 : 2, WebkitBoxOrient: 'vertical' as const }}>
                           {post.title}
                         </div>
                       </div>
 
                       {isActive && (
-                        <div style={{ padding: '10px 12px', background: C.bg2, borderRadius: '0 0 10px 10px', borderLeft: `1.5px solid ${C.border2}`, borderRight: `1.5px solid ${C.border2}`, borderBottom: `1.5px solid ${C.border2}`, marginTop: -6 }}>
-                          <div style={{ fontFamily: SERIF, fontWeight: 300, fontSize: 12, color: C.ink2, lineHeight: 1.8, marginBottom: 10, whiteSpace: 'pre-wrap' }}>
+                        <div style={{ padding: '10px 12px', background: C.bg1, borderRadius: '0 0 10px 10px', borderLeft: `1.5px solid ${C.border2}`, borderRight: `1.5px solid ${C.border2}`, borderBottom: `1.5px solid ${C.border2}`, marginTop: -6 }}>
+                          <div style={{ fontFamily: SANS, fontSize: 12, color: C.ink2, lineHeight: 1.8, marginBottom: 10, whiteSpace: 'pre-wrap' }}>
                             {post.content || post.title}
                           </div>
                           {post.hashtags?.length > 0 && (
@@ -206,21 +205,18 @@ export default function CalendarPage() {
                             <button onClick={() => copyContent(post.content || post.title)} style={{
                               flex: 1, padding: '6px 0', borderRadius: 7, border: `1px solid ${C.border2}`,
                               background: '#fff', color: C.ink3, fontFamily: MONO, fontSize: 9, cursor: 'pointer',
-                              letterSpacing: '0.04em',
-                            }}>{copied ? '已复制 ✓' : '复制内容'}</button>
+                            }}>{copied ? t('calendar.copied', lang) : t('calendar.copy', lang)}</button>
                             {post.status === 'draft' && (
                               <button onClick={() => updatePost(projectId, post.id, { status: 'scheduled' })} style={{
                                 flex: 1, padding: '6px 0', borderRadius: 7, border: 'none',
-                                background: C.accent, color: '#fff', fontFamily: MONO, fontSize: 9, cursor: 'pointer',
-                                letterSpacing: '0.04em',
-                              }}>标为排期</button>
+                                background: '#f59e0b', color: '#fff', fontFamily: MONO, fontSize: 9, cursor: 'pointer',
+                              }}>{t('calendar.schedule', lang)}</button>
                             )}
                             {post.status === 'scheduled' && (
                               <button onClick={() => updatePost(projectId, post.id, { status: 'published', publishedAt: new Date().toISOString() })} style={{
                                 flex: 1, padding: '6px 0', borderRadius: 7, border: 'none',
                                 background: C.green, color: '#fff', fontFamily: MONO, fontSize: 9, cursor: 'pointer',
-                                letterSpacing: '0.04em',
-                              }}>标为已发布</button>
+                              }}>{t('calendar.markpub', lang)}</button>
                             )}
                           </div>
                         </div>

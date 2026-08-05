@@ -116,8 +116,8 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Inter', 'PingFang SC', '
 
 ::-webkit-scrollbar { width: 5px; height: 5px; }
 ::-webkit-scrollbar-track { background: transparent; }
-::-webkit-scrollbar-thumb { background: rgba(124,109,250,0.25); border-radius: 99px; }
-::-webkit-scrollbar-thumb:hover { background: rgba(124,109,250,0.5); }
+::-webkit-scrollbar-thumb { background: rgba(59,130,246,0.25); border-radius: 99px; }
+::-webkit-scrollbar-thumb:hover { background: rgba(59,130,246,0.5); }
 
 /* Markdown rendered content */
 .md-agent h1, .md-agent h2, .md-agent h3 { font-weight: 600; margin: 12px 0 6px; color: #111; line-height: 1.4; }

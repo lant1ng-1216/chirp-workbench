@@ -1,459 +1,406 @@
 'use client'
-import { useState, useRef, useMemo } from 'react'
-import { useParams, useRouter } from 'next/navigation'
+import { useState, useRef, useEffect, useCallback } from 'react'
+import { useParams } from 'next/navigation'
 import { useMingStore } from '@/lib/store'
-import type { TodoItem, ExtractedCard } from '@/lib/store'
+import { t } from '@/lib/i18n'
+import { SiGmail } from 'react-icons/si'
+
+const MIN_W    = 220
+const MAX_W    = 560
+const DEFAULT_W = 288
 
 const C = {
-  bg: '#faf9f7', bg2: '#f4f2ee', bg3: '#edeae4',
-  ink: '#1a1916', ink2: '#4a4844', ink3: '#9a9894', ink4: '#c8c6c0',
-  accent: '#1c3a2e', al: 'rgba(28,58,46,0.08)', al2: 'rgba(28,58,46,0.15)',
-  gold: '#7a6020', gl: '#f5f0e8',
-  border: 'rgba(26,25,22,0.08)', border2: 'rgba(26,25,22,0.14)',
-  shadow: '0 1px 3px rgba(26,25,22,0.06),0 3px 10px rgba(26,25,22,0.04)',
-  green: '#4a9e6a',
+  bg:     '#ffffff',
+  bg1:    '#f9fafb',
+  bg2:    '#f3f4f6',
+  ink:    '#111827',
+  ink2:   '#374151',
+  ink3:   '#6b7280',
+  ink4:   '#9ca3af',
+  accent: '#3b82f6',
+  al:     'rgba(59,130,246,0.08)',
+  al2:    'rgba(59,130,246,0.14)',
+  border: 'rgba(17,24,39,0.08)',
+  border2:'rgba(17,24,39,0.13)',
+  green:  '#10b981',
+  red:    '#ea4335',
 }
-const SERIF = "'Noto Serif SC', Georgia, serif"
-const MONO  = "'Space Mono', monospace"
-const SANS  = "'Noto Sans SC', 'PingFang SC', sans-serif"
+const SANS = "'Inter', -apple-system, sans-serif"
+const MONO = "'Space Mono', monospace"
 
-type Tab = 'output' | 'todo' | 'knowledge'
+interface Msg { role: 'user' | 'pip'; text: string; ts: number }
 
-/* On-demand generation items — clicking redirects to chat with pre-filled prompt */
-const ON_DEMAND = [
-  {
-    id: 'strategy',
-    label: '内容策略思维导图',
-    desc: '可视化品牌内容支柱与话题架构',
-    prompt: '帮我梳理品牌内容策略，生成一份内容支柱和话题架构的思维导图文字版，按层级列出',
-    svg: <svg width="13" height="13" fill="none" stroke="currentColor" strokeWidth="1.5" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M12 2v4M12 18v4M2 12h4M18 12h4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/></svg>,
-  },
-  {
-    id: 'calendar',
-    label: '本周内容日历',
-    desc: '智能排期，按平台最优时间建议',
-    prompt: '帮我规划本周的内容日历，每天的发布计划、平台、内容方向，并给出最佳发布时间',
-    svg: <svg width="13" height="13" fill="none" stroke="currentColor" strokeWidth="1.5" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>,
-  },
-  {
-    id: 'competitor',
-    label: '竞品内容对比报告',
-    desc: '分析竞品策略，找差异化机会',
-    prompt: '帮我分析竞品的内容策略，与我们品牌做对比，找出差异化切入点和可以借鉴的方向',
-    svg: <svg width="13" height="13" fill="none" stroke="currentColor" strokeWidth="1.5" viewBox="0 0 24 24"><path d="M3 3v18h18"/><path d="M18 17V9M13 17V5M8 17v-3"/></svg>,
-  },
-  {
-    id: 'hook',
-    label: '爆款标题生成器',
-    desc: '基于品牌调性，生成 10 条吸睛标题',
-    prompt: '基于我的品牌调性和目标受众，帮我生成 10 条适合小红书和抖音的爆款标题，风格多样',
-    svg: <svg width="13" height="13" fill="none" stroke="currentColor" strokeWidth="1.5" viewBox="0 0 24 24"><path d="M12 20h9M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>,
-  },
-  {
-    id: 'weekly',
-    label: '本周数据周报',
-    desc: '汇总各平台表现，提炼洞察',
-    prompt: '帮我生成本周的营销数据周报，总结各平台内容表现，提炼关键洞察和下周行动建议',
-    svg: <svg width="13" height="13" fill="none" stroke="currentColor" strokeWidth="1.5" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>,
-  },
-]
-
-const DOC_TYPE_LABEL: Record<string, string> = {
-  business_profile:     '业务概况',
-  brand_guidelines:     '品牌规范',
-  audience_persona:     '受众画像',
-  social_strategy:      '社媒策略',
-  first_week_calendar:  '首周日历',
-  competitor_deep_dive: '竞品报告',
-  market_research:      '市场调研',
-  onboarding_brief:     '入驻简报',
-}
-
-const PLATFORM_EMOJI: Record<string, string> = {
-  '小红书': '📕', '微博': '🌐', '抖音': '🎬', 'B站': '📺',
-  '微信公众号': '💬', '知乎': '📖', 'Twitter': '🐦', 'Instagram': '📸', 'LinkedIn': '💼',
-}
-
-function CopyItem({ card, index }: { card: ExtractedCard; index: number }) {
-  const [copied, setCopied] = useState(false)
-  const [expanded, setExpanded] = useState(false)
-
-  const copy = async () => {
-    try { await navigator.clipboard.writeText(card.content) } catch {
-      const el = document.createElement('textarea'); el.value = card.content
-      document.body.appendChild(el); el.select(); document.execCommand('copy'); document.body.removeChild(el)
-    }
-    setCopied(true); setTimeout(() => setCopied(false), 1500)
-  }
-
+function PipAvatar({ size = 24 }: { size?: number }) {
   return (
-    <div style={{ borderRadius: 8, border: `1px solid ${C.border2}`, overflow: 'hidden', background: '#fff' }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '7px 9px', background: C.bg2, borderBottom: expanded ? `1px solid ${C.border}` : 'none' }}>
-        <span style={{ fontFamily: MONO, fontSize: 9, color: C.ink4, minWidth: 14 }}>#{index + 1}</span>
-        <span style={{ fontFamily: SANS, fontSize: 10, color: C.ink3, flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-          {card.content.slice(0, 24).replace(/\n/g, ' ')}…
-        </span>
-        <button onClick={() => setExpanded(v => !v)} style={{ fontFamily: MONO, fontSize: 9, color: C.ink4, background: 'none', border: 'none', cursor: 'pointer', flexShrink: 0 }}>
-          {expanded ? '收起' : '查看'}
-        </button>
-        <button onClick={copy} style={{
-          display: 'flex', alignItems: 'center', gap: 2, padding: '2px 7px', borderRadius: 4, flexShrink: 0,
-          border: `1px solid ${copied ? 'rgba(28,58,46,0.3)' : C.border2}`,
-          background: copied ? 'rgba(28,58,46,0.07)' : C.bg,
-          color: copied ? C.accent : C.ink4,
-          cursor: 'pointer', fontSize: 9, fontFamily: MONO, transition: 'all 0.15s',
-        }}>
-          {copied ? '✓' : '⎘'}
-        </button>
-      </div>
-      {expanded && (
-        <div style={{ padding: '9px 10px', fontFamily: SANS, fontSize: 11, color: C.ink2, lineHeight: 1.75, whiteSpace: 'pre-wrap', maxHeight: 320, overflowY: 'auto' }}>
-          {card.content}
-        </div>
-      )}
+    <div style={{
+      width: size, height: size, borderRadius: Math.round(size * 0.28),
+      background: C.al2, border: '1px solid rgba(59,130,246,0.2)',
+      display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
+    }}>
+      <svg width={size * 0.48} height={size * 0.48} fill="none" stroke={C.accent} strokeWidth="1.8" viewBox="0 0 24 24">
+        <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2z"/>
+        <path d="M12 8v4l3 3"/>
+      </svg>
     </div>
   )
 }
 
-function GeneratedContent({ cards, projectId, threadId, onClear }: {
-  cards: ExtractedCard[]
-  projectId: string
-  threadId: string | null
-  onClear: () => void
-}) {
-  const platforms = useMemo(() => {
-    const seen = new Set<string>()
-    const order: string[] = []
-    cards.forEach(c => { if (!seen.has(c.platform)) { seen.add(c.platform); order.push(c.platform) } })
-    return order
-  }, [cards])
+function GmailIcon({ size = 18 }: { size?: number }) {
+  return <SiGmail size={size} color="#EA4335" />
+}
 
-  const [activePlat, setActivePlat] = useState<string>('')
-  const currentPlat = platforms.includes(activePlat) ? activePlat : platforms[0] ?? ''
-  const platCards = cards.filter(c => c.platform === currentPlat)
-
-  if (cards.length === 0) {
-    return (
-      <div style={{ marginTop: 8, padding: '10px 11px', borderRadius: 9, background: C.gl, border: `1px solid rgba(122,96,32,0.14)` }}>
-        <p style={{ fontFamily: SERIF, fontWeight: 300, fontSize: 10, color: C.ink3, lineHeight: 1.8, margin: 0 }}>
-          与鸣对话后，生成的各平台营销文案将自动出现在此处，支持一键复制。
-        </p>
-      </div>
-    )
+function makeDailyReport(zh: boolean, projectName: string): string {
+  const today = new Date()
+  const dateStr = today.toLocaleDateString(zh ? 'zh-CN' : 'en-US', { month: 'long', day: 'numeric' })
+  if (zh) {
+    return `今日日报 — ${dateStr}\n\n1. YouTube 视频描述已就绪，等待发布\n2. Instagram 文案已起草，建议今日审核\n3. TikTok 脚本草稿 × 1，可直接使用\n4. X 帖子创意 × 2，等待你批准\n5. 内容日历本周节奏：YT×1 / IG×2 / TT×3 / X×5\n\n有什么需要我跟进的吗？`
   }
-
-  return (
-    <div style={{ marginTop: 8 }}>
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
-        <span style={{ fontFamily: MONO, fontSize: 9, color: C.ink4, letterSpacing: '0.06em' }}>已生成内容</span>
-        <button onClick={onClear} style={{ fontFamily: MONO, fontSize: 9, color: C.ink4, background: 'none', border: 'none', cursor: 'pointer' }}>清空</button>
-      </div>
-
-      {/* Platform tabs */}
-      <div style={{ display: 'flex', gap: 5, flexWrap: 'wrap' as const, marginBottom: 9 }}>
-        {platforms.map(plat => {
-          const active = plat === currentPlat
-          const count = cards.filter(c => c.platform === plat).length
-          return (
-            <button key={plat} onClick={() => setActivePlat(plat)} style={{
-              display: 'flex', alignItems: 'center', gap: 4, padding: '4px 9px', borderRadius: 99,
-              border: `1px solid ${active ? C.accent : C.border2}`,
-              background: active ? C.accent : '#fff',
-              color: active ? '#fff' : C.ink3,
-              cursor: 'pointer', fontSize: 10, fontFamily: SANS, transition: 'all 0.15s',
-            }}>
-              <span>{PLATFORM_EMOJI[plat] ?? '📄'}</span>
-              <span>{plat}</span>
-              {count > 1 && <span style={{ fontFamily: MONO, fontSize: 8, opacity: 0.7 }}>{count}</span>}
-            </button>
-          )
-        })}
-      </div>
-
-      {/* Cards for active platform */}
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-        {platCards.map((card, i) => <CopyItem key={card.id} card={card} index={i} />)}
-      </div>
-    </div>
-  )
+  return `Daily Report — ${dateStr}\n\n1. YouTube description ready — waiting to publish\n2. Instagram caption drafted — review today\n3. TikTok script × 1 ready to use\n4. X post ideas × 2 — awaiting your approval\n5. This week's cadence: YT×1 / IG×2 / TT×3 / X×5\n\nAnything you'd like me to follow up on?`
 }
 
 export default function RightPanel() {
   const params    = useParams()
-  const router    = useRouter()
   const projectId = params?.projectId as string
-  const { projects, todos, addTodo, toggleTodo, removeTodo, extractedCards, clearExtractedCards, activeThreadId } = useMingStore()
+  const { projects, lang } = useMingStore()
   const project   = projects.find(p => p.id === projectId)
-  const sessionCards = extractedCards.filter(c => c.projectId === projectId && (!activeThreadId || c.threadId === activeThreadId))
 
-  const [tab,         setTab]         = useState<Tab>('output')
-  const [expandedDoc, setExpandedDoc] = useState<string | null>(null)
-  const [todoInput,   setTodoInput]   = useState('')
-  const inputRef = useRef<HTMLInputElement>(null)
+  const zh = lang === 'zh'
+
+  // ── Resize ──
+  const [panelW, setPanelW]   = useState(DEFAULT_W)
+  const dragging  = useRef(false)
+  const startX    = useRef(0)
+  const startW    = useRef(DEFAULT_W)
+
+  const onDragStart = useCallback((e: React.MouseEvent) => {
+    dragging.current = true
+    startX.current   = e.clientX
+    startW.current   = panelW
+    document.body.style.cursor    = 'col-resize'
+    document.body.style.userSelect = 'none'
+  }, [panelW])
+
+  useEffect(() => {
+    const onMove = (e: MouseEvent) => {
+      if (!dragging.current) return
+      const delta = startX.current - e.clientX  // drag left → wider
+      setPanelW(Math.max(MIN_W, Math.min(MAX_W, startW.current + delta)))
+    }
+    const onUp = () => {
+      dragging.current = false
+      document.body.style.cursor    = ''
+      document.body.style.userSelect = ''
+    }
+    window.addEventListener('mousemove', onMove)
+    window.addEventListener('mouseup', onUp)
+    return () => { window.removeEventListener('mousemove', onMove); window.removeEventListener('mouseup', onUp) }
+  }, [])
+
+  // ── Email / Chat ──
+  const CHAT_KEY = `pip-chat-${projectId}`
+  const [msgs,       setMsgs]       = useState<Msg[]>([])
+  const [input,      setInput]      = useState('')
+  const [loading,    setLoading]    = useState(false)
+  const [loadingSec, setLoadingSec] = useState(0)
+  const loadingTimer = useRef<ReturnType<typeof setInterval> | null>(null)
+  const [emailMode,  setEmailMode]  = useState(false)
+  const [emailDismissed, setEmailDismissed] = useState(false)
+  const [hydrated,   setHydrated]   = useState(false)
+  const bottomRef    = useRef<HTMLDivElement>(null)
+  const textareaRef  = useRef<HTMLTextAreaElement>(null)
+
+  // Load chat history from localStorage on mount
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem(CHAT_KEY)
+      const parsed: Msg[] = saved ? JSON.parse(saved) : []
+      setMsgs(parsed.length > 0 ? parsed : [{ role: 'pip', text: t('chat.greeting', lang), ts: Date.now() }])
+    } catch {
+      setMsgs([{ role: 'pip', text: t('chat.greeting', lang), ts: Date.now() }])
+    }
+    setHydrated(true)
+  }, [projectId])
+
+  // Persist chat to localStorage whenever msgs change
+  useEffect(() => {
+    if (!hydrated) return
+    try { localStorage.setItem(CHAT_KEY, JSON.stringify(msgs)) } catch { /* ignore */ }
+  }, [msgs, hydrated])
+
+  useEffect(() => {
+    bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
+  }, [msgs])
 
   if (!project) return null
   const { brand } = project
 
-  const projectTodos = todos.filter(t => t.projectId === projectId)
-  const doneTodos    = projectTodos.filter(t => t.done)
-  const pendingTodos = projectTodos.filter(t => !t.done)
+  const STARTERS = [
+    t('chat.starter.3', lang),
+    t('chat.starter.1', lang),
+    t('chat.starter.4', lang),
+  ]
 
-  const submitTodo = () => {
-    const text = todoInput.trim()
-    if (!text) return
-    const item: TodoItem = { id: `todo-${Date.now()}`, projectId, text, done: false, createdAt: new Date().toISOString() }
-    addTodo(item)
-    setTodoInput('')
-    inputRef.current?.focus()
+  const loadEmail = () => {
+    const report = makeDailyReport(zh, brand.name)
+    setMsgs(prev => [...prev.filter(m => m.role !== 'pip' || prev.indexOf(m) !== 0),
+      { role: 'pip', text: report, ts: Date.now() }
+    ])
+    setEmailMode(true)
+    setEmailDismissed(true)
   }
 
-  const goChat = (prompt: string) => {
-    router.push(`/app/${projectId}?prompt=${encodeURIComponent(prompt)}`)
+  const send = async (text: string) => {
+    if (!text.trim() || loading) return
+    const alias = brand.mindsConversationAlias
+    setMsgs(prev => [...prev, { role: 'user', text: text.trim(), ts: Date.now() }])
+    setInput('')
+    setLoading(true)
+    setLoadingSec(0)
+    loadingTimer.current = setInterval(() => setLoadingSec(s => s + 1), 1000)
+
+    const stopLoading = () => {
+      if (loadingTimer.current) { clearInterval(loadingTimer.current); loadingTimer.current = null }
+      setLoading(false)
+      setLoadingSec(0)
+    }
+
+    if (!alias) {
+      setMsgs(prev => [...prev, { role: 'pip', text: t('chat.noalias', lang), ts: Date.now() }])
+      stopLoading()
+      return
+    }
+
+    try {
+      // 1. Fire-and-forget send — returns sentAt timestamp
+      const sendRes = await fetch('/api/minds/send-async', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ alias, message: text.trim() }),
+      })
+      const { sentAt, error } = await sendRes.json()
+      if (error) throw new Error(error)
+
+      // 2. Poll history every 3s until a Mind reply after sentAt appears
+      const POLL_INTERVAL = 3000
+      const POLL_TIMEOUT  = 5 * 60 * 1000 // 5 min
+      const started = Date.now()
+
+      const poll = async (): Promise<void> => {
+        if (Date.now() - started > POLL_TIMEOUT) {
+          setMsgs(prev => [...prev, { role: 'pip', text: t('chat.error', lang), ts: Date.now() }])
+          stopLoading()
+          return
+        }
+        try {
+          const histRes = await fetch(`/api/minds/history?alias=${encodeURIComponent(alias)}&limit=10`)
+          const { history } = await histRes.json() as {
+            history: Array<{ senderType: number; messageText: string; createdAt: string }>
+          }
+          // senderType 0 = Mind reply; createdAt is ISO string
+          const reply = history.find(m =>
+            m.senderType === 0 && new Date(m.createdAt).getTime() >= sentAt
+          )
+          if (reply) {
+            const clean = reply.messageText.replace(/<[^>]+>/g, '').trim()
+            setMsgs(prev => [...prev, { role: 'pip', text: clean, ts: Date.now() }])
+            stopLoading()
+            return
+          }
+        } catch { /* keep polling */ }
+        setTimeout(poll, POLL_INTERVAL)
+      }
+
+      setTimeout(poll, POLL_INTERVAL)
+    } catch {
+      setMsgs(prev => [...prev, { role: 'pip', text: t('chat.error', lang), ts: Date.now() }])
+      stopLoading()
+    }
+  }
+
+  const onKey = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send(input) }
   }
 
   return (
-    <aside style={{ width: 252, flexShrink: 0, background: C.bg, borderLeft: `1px solid ${C.border}`, display: 'flex', flexDirection: 'column', overflow: 'hidden', fontFamily: SANS }}>
+    <aside style={{
+      width: panelW, flexShrink: 0, position: 'relative',
+      background: C.bg, borderLeft: `1px solid ${C.border}`,
+      display: 'flex', flexDirection: 'column', overflow: 'hidden', fontFamily: SANS,
+      transition: dragging.current ? 'none' : 'width 0.05s',
+    }}>
+      <style>{`@keyframes pulse{0%,100%{opacity:1}50%{opacity:.35}}`}</style>
 
-      {/* Tabs */}
-      <div style={{ display: 'flex', borderBottom: `1px solid ${C.border}`, flexShrink: 0 }}>
-        {(['output', 'todo', 'knowledge'] as Tab[]).map(t => (
-          <button key={t} onClick={() => setTab(t)} style={{
-            flex: 1, padding: '11px 0', fontFamily: SERIF, fontSize: 11, fontWeight: tab === t ? 600 : 400,
-            color: tab === t ? C.ink : C.ink4, background: 'none', border: 'none', cursor: 'pointer',
-            borderBottom: `1.5px solid ${tab === t ? C.accent : 'transparent'}`,
-            transition: 'color 0.15s',
-          }}>
-            {{ output: '内容输出', todo: '待办', knowledge: '知识库' }[t]}
-            {t === 'todo' && pendingTodos.length > 0 && (
-              <span style={{ marginLeft: 5, fontFamily: MONO, fontSize: 8, background: C.accent, color: '#fff', borderRadius: 99, padding: '1px 5px' }}>{pendingTodos.length}</span>
-            )}
-          </button>
-        ))}
+      {/* ── Drag handle ── */}
+      <div
+        onMouseDown={onDragStart}
+        style={{
+          position: 'absolute', left: 0, top: 0, bottom: 0, width: 4, zIndex: 20,
+          cursor: 'col-resize', background: 'transparent',
+        }}
+        onMouseEnter={e => (e.currentTarget.style.background = 'rgba(59,130,246,0.15)')}
+        onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
+      />
+
+      {/* ── Header ── */}
+      <div style={{
+        padding: '10px 14px', borderBottom: `1px solid ${C.border}`,
+        display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0,
+      }}>
+        <PipAvatar size={30} />
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ fontWeight: 600, fontSize: 13, color: C.ink }}>Pip</div>
+          <div style={{ fontFamily: MONO, fontSize: 8, color: brand.mindsConversationAlias ? C.accent : C.ink4, letterSpacing: '0.04em', marginTop: 1 }}>
+            {brand.mindsConversationAlias
+              ? `● ${zh ? '已连接 · 由 Minds 驱动' : 'CONNECTED · Powered by Minds'}`
+              : `○ ${zh ? '未连接' : 'NOT CONNECTED'}`}
+          </div>
+        </div>
+        {emailMode && (
+          <div style={{ fontFamily: MONO, fontSize: 8, color: C.accent, background: C.al, padding: '2px 6px', borderRadius: 5, flexShrink: 0 }}>
+            {zh ? '邮件模式' : 'EMAIL'}
+          </div>
+        )}
       </div>
 
+
+      {/* ── Email anchor card (shown until dismissed) ── */}
+      {!emailDismissed && (
+        <div style={{
+          margin: '10px 10px 0',
+          background: C.bg1, borderRadius: 10, border: `1px solid ${C.border2}`,
+          overflow: 'hidden', flexShrink: 0,
+        }}>
+          <div style={{ padding: '10px 12px', display: 'flex', alignItems: 'center', gap: 9, borderBottom: `1px solid ${C.border}` }}>
+            <GmailIcon size={18} />
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{ fontSize: 11, fontWeight: 600, color: C.ink }}>{zh ? 'Pip 已发送今日日报' : "Pip sent today's report"}</div>
+              <div style={{ fontFamily: MONO, fontSize: 8, color: C.ink4, marginTop: 1 }}>{zh ? '刚刚 · pip@chirpai.com' : 'just now · pip@chirpai.com'}</div>
+            </div>
+            <button
+              onClick={() => setEmailDismissed(true)}
+              style={{ background: 'none', border: 'none', cursor: 'pointer', color: C.ink4, padding: 2, fontSize: 14, lineHeight: 1 }}
+            >×</button>
+          </div>
+          <div style={{ padding: '8px 12px', display: 'flex', gap: 6 }}>
+            <button
+              onClick={loadEmail}
+              style={{
+                flex: 1, padding: '7px 0', borderRadius: 7,
+                background: C.accent, color: '#fff', border: 'none', cursor: 'pointer',
+                fontSize: 11, fontWeight: 600, fontFamily: SANS,
+              }}
+            >
+              {zh ? '按邮件内容继续对话 →' : 'Continue from email →'}
+            </button>
+            <button
+              onClick={() => setEmailDismissed(true)}
+              style={{
+                padding: '7px 10px', borderRadius: 7,
+                background: C.bg2, color: C.ink3, border: 'none', cursor: 'pointer',
+                fontSize: 11, fontFamily: SANS,
+              }}
+            >
+              {zh ? '独立对话' : 'Skip'}
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* ── Messages ── */}
       <div style={{ flex: 1, overflowY: 'auto', padding: '12px 10px' }}>
 
-        {/* ── OUTPUT TAB ── */}
-        {tab === 'output' && (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
-            <p style={{ fontFamily: SERIF, fontWeight: 300, fontSize: 11, color: C.ink4, margin: '0 0 6px 0', lineHeight: 1.7 }}>
-              点击下方按钮，鸣将在聊天室为你生成对应内容
-            </p>
-
-            <div style={{ fontFamily: MONO, fontSize: 8, color: C.ink4, letterSpacing: '0.12em', textTransform: 'uppercase' as const, padding: '6px 2px 4px' }}>按需生成</div>
-
-            {ON_DEMAND.map(tool => (
-              <button key={tool.id} onClick={() => goChat(tool.prompt)} style={{
-                width: '100%', display: 'flex', alignItems: 'center', gap: 10,
-                padding: '10px 11px', borderRadius: 9, cursor: 'pointer', textAlign: 'left' as const,
-                border: `1px solid ${C.border2}`, background: '#fff', boxShadow: C.shadow,
-                transition: 'border-color 0.15s, background 0.15s',
+        {/* Starter prompts (only before user sends anything) */}
+        {msgs.length <= 1 && !emailMode && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 5, marginBottom: 12 }}>
+            {STARTERS.map(s => (
+              <button key={s} onClick={() => send(s)} style={{
+                padding: '6px 10px', borderRadius: 8, border: `1px solid ${C.border2}`,
+                background: C.bg1, fontFamily: SANS, fontSize: 11, color: C.ink3,
+                cursor: 'pointer', textAlign: 'left', lineHeight: 1.4,
               }}
-                onMouseEnter={e => { e.currentTarget.style.borderColor = C.accent; e.currentTarget.style.background = C.al }}
-                onMouseLeave={e => { e.currentTarget.style.borderColor = C.border2; e.currentTarget.style.background = '#fff' }}
-              >
-                <span style={{ color: C.ink4, flexShrink: 0 }}>{tool.svg}</span>
-                <div style={{ flex: 1 }}>
-                  <div style={{ fontFamily: SERIF, fontSize: 12, fontWeight: 600, color: C.ink, marginBottom: 2 }}>{tool.label}</div>
-                  <div style={{ fontFamily: SANS, fontSize: 10, color: C.ink4, lineHeight: 1.5 }}>{tool.desc}</div>
-                </div>
-                <svg width="9" height="9" fill="none" stroke={C.ink4} strokeWidth="1.8" viewBox="0 0 24 24" style={{ flexShrink: 0 }}><path d="M5 12h14M12 5l7 7-7 7"/></svg>
-              </button>
+                onMouseEnter={e => { e.currentTarget.style.borderColor = C.accent; e.currentTarget.style.color = C.accent }}
+                onMouseLeave={e => { e.currentTarget.style.borderColor = C.border2; e.currentTarget.style.color = C.ink3 }}
+              >{s}</button>
             ))}
-
-            <GeneratedContent
-              cards={sessionCards}
-              projectId={projectId}
-              threadId={activeThreadId}
-              onClear={() => activeThreadId && clearExtractedCards(projectId, activeThreadId)}
-            />
           </div>
         )}
 
-        {/* ── TODO TAB ── */}
-        {tab === 'todo' && (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-            {/* Input */}
-            <div style={{ display: 'flex', gap: 5, marginBottom: 6 }}>
-              <input
-                ref={inputRef}
-                value={todoInput}
-                onChange={e => setTodoInput(e.target.value)}
-                onKeyDown={e => e.key === 'Enter' && submitTodo()}
-                placeholder="添加待办…"
-                style={{
-                  flex: 1, padding: '7px 10px', borderRadius: 8,
-                  border: `1px solid ${C.border2}`, background: '#fff',
-                  fontFamily: SERIF, fontWeight: 300, fontSize: 12, color: C.ink, outline: 'none',
-                }}
-                onFocus={e => (e.currentTarget.style.borderColor = 'rgba(28,58,46,0.4)')}
-                onBlur={e => (e.currentTarget.style.borderColor = C.border2)}
-              />
-              <button onClick={submitTodo} style={{
-                width: 30, borderRadius: 8, border: 'none',
-                background: todoInput.trim() ? C.accent : C.bg3,
-                color: todoInput.trim() ? '#fff' : C.ink4,
-                cursor: todoInput.trim() ? 'pointer' : 'not-allowed',
-                fontSize: 16, display: 'flex', alignItems: 'center', justifyContent: 'center',
-                transition: 'background 0.15s',
-              }}>+</button>
-            </div>
+        {msgs.map((m, i) => (
+          <div key={i} style={{
+            display: 'flex', gap: 7, marginBottom: 12,
+            flexDirection: m.role === 'user' ? 'row-reverse' : 'row',
+            alignItems: 'flex-start',
+          }}>
+            {m.role === 'pip' && <PipAvatar size={22} />}
+            <div style={{
+              maxWidth: '84%', padding: '8px 11px',
+              borderRadius: m.role === 'user' ? '10px 10px 3px 10px' : '10px 10px 10px 3px',
+              background: m.role === 'user' ? C.accent : '#fff',
+              color: m.role === 'user' ? '#fff' : C.ink2,
+              fontSize: 12, lineHeight: 1.65,
+              border: m.role === 'pip' ? `1px solid ${C.border2}` : 'none',
+              boxShadow: '0 1px 3px rgba(17,24,39,0.05)',
+              whiteSpace: 'pre-wrap', wordBreak: 'break-word',
+            }}>{m.text}</div>
+          </div>
+        ))}
 
-            {/* Pending */}
-            {pendingTodos.length === 0 && doneTodos.length === 0 && (
-              <div style={{ textAlign: 'center', padding: '28px 12px' }}>
-                <div style={{ width: 32, height: 32, borderRadius: 8, background: C.al, display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 10px', fontFamily: SERIF, color: C.accent, fontSize: 16 }}>✓</div>
-                <p style={{ fontFamily: SERIF, fontWeight: 300, fontSize: 12, color: C.ink4, lineHeight: 1.8 }}>
-                  今日清空！<br />也可以让鸣帮你列待办
-                </p>
-                <button onClick={() => goChat('帮我列出今天的营销待办清单')} style={{
-                  marginTop: 10, padding: '6px 14px', borderRadius: 7, border: `1px solid ${C.border2}`,
-                  background: 'transparent', color: C.ink3, fontFamily: SERIF, fontSize: 11, cursor: 'pointer',
-                }}>让鸣来列</button>
-              </div>
-            )}
-
-            {pendingTodos.map(todo => (
-              <TodoRow key={todo.id} todo={todo} onToggle={() => toggleTodo(todo.id)} onRemove={() => removeTodo(todo.id)} />
-            ))}
-
-            {/* Done section */}
-            {doneTodos.length > 0 && (
-              <>
-                <div style={{ fontFamily: MONO, fontSize: 8, color: C.ink4, letterSpacing: '0.12em', padding: '10px 2px 4px', textTransform: 'uppercase' as const }}>已完成 · {doneTodos.length}</div>
-                {doneTodos.map(todo => (
-                  <TodoRow key={todo.id} todo={todo} onToggle={() => toggleTodo(todo.id)} onRemove={() => removeTodo(todo.id)} />
+        {loading && (
+          <div style={{ display: 'flex', gap: 7, marginBottom: 12, alignItems: 'flex-start' }}>
+            <PipAvatar size={22} />
+            <div style={{ padding: '9px 12px', borderRadius: '10px 10px 10px 3px', background: '#fff', border: `1px solid ${C.border2}`, display: 'flex', flexDirection: 'column', gap: 5 }}>
+              <div style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
+                {[0, 0.15, 0.3].map((d, i) => (
+                  <div key={i} style={{ width: 6, height: 6, borderRadius: 3, background: C.accent, animation: `pulse 1.2s ${d}s infinite` }} />
                 ))}
-              </>
-            )}
-          </div>
-        )}
-
-        {/* ── KNOWLEDGE TAB ── */}
-        {tab === 'knowledge' && (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-            <p style={{ fontFamily: MONO, fontSize: 9, color: C.ink4, letterSpacing: '0.08em', margin: '0 0 6px 0' }}>
-              知识库 · {brand.knowledgeDocs.length} 份文档
-            </p>
-
-            {brand.knowledgeDocs.length === 0 && (
-              <div style={{ padding: '24px 12px', textAlign: 'center', borderRadius: 9, border: `1px solid ${C.border}`, background: '#fff' }}>
-                <p style={{ fontFamily: SERIF, fontWeight: 300, fontSize: 12, color: C.ink4, lineHeight: 1.8 }}>
-                  知识库为空<br />完成 Lab 评审后文档会自动同步
-                </p>
+                <span style={{ fontFamily: MONO, fontSize: 9, color: C.ink4, marginLeft: 4 }}>{loadingSec}s</span>
               </div>
-            )}
-
-            {brand.knowledgeDocs.map(doc => (
-              <div key={doc.id} style={{ borderRadius: 9, border: `1px solid ${C.border2}`, background: '#fff', overflow: 'hidden', boxShadow: C.shadow }}>
-                <div onClick={() => setExpandedDoc(expandedDoc === doc.id ? null : doc.id)} style={{
-                  display: 'flex', alignItems: 'center', gap: 8, padding: '9px 11px', cursor: 'pointer',
-                  transition: 'background 0.15s',
-                }}
-                  onMouseEnter={e => (e.currentTarget.style.background = C.al)}
-                  onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
-                >
-                  <svg width="11" height="11" fill="none" stroke={C.ink4} strokeWidth="1.5" viewBox="0 0 24 24" style={{ flexShrink: 0 }}><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ fontFamily: SERIF, fontSize: 11, fontWeight: 600, color: C.ink, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{doc.title}</div>
-                    <div style={{ fontFamily: MONO, fontSize: 8, color: C.ink4, letterSpacing: '0.04em', marginTop: 1 }}>{DOC_TYPE_LABEL[doc.type] || doc.type}</div>
-                  </div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 5, flexShrink: 0 }}>
-                    <span style={{ fontFamily: MONO, fontSize: 8, color: C.ink4 }}>{new Date(doc.updatedAt).toLocaleDateString('zh-CN', { month: '2-digit', day: '2-digit' })}</span>
-                    <svg width="8" height="8" fill="none" stroke={C.ink4} strokeWidth="2" viewBox="0 0 24 24"><path d={expandedDoc === doc.id ? 'm18 15-6-6-6 6' : 'm6 9 6 6 6-6'}/></svg>
-                  </div>
-                </div>
-                {expandedDoc === doc.id && (
-                  <div style={{ padding: '8px 11px 11px', borderTop: `1px solid ${C.border}`, fontFamily: SERIF, fontWeight: 300, fontSize: 11, color: C.ink2, lineHeight: 1.9, maxHeight: 180, overflowY: 'auto' }}>
-                    {doc.content}
-                  </div>
-                )}
-              </div>
-            ))}
-
-            {/* Brand assets */}
-            <div style={{ fontFamily: MONO, fontSize: 8, color: C.ink4, letterSpacing: '0.12em', textTransform: 'uppercase' as const, padding: '10px 2px 4px' }}>品牌素材</div>
-
-            <div style={{ borderRadius: 9, border: `1px solid ${C.border2}`, background: '#fff', padding: '12px 12px 10px', boxShadow: C.shadow }}>
-              {/* Brand tone */}
-              {brand.tone && (
-                <div style={{ marginTop: 10, paddingTop: 9, borderTop: `1px solid ${C.border}` }}>
-                  <div style={{ fontFamily: MONO, fontSize: 8, color: C.ink4, letterSpacing: '0.06em', marginBottom: 5 }}>品牌调性</div>
-                  <div style={{ fontFamily: SERIF, fontWeight: 300, fontSize: 11, color: C.ink2, lineHeight: 1.8 }}>{brand.tone}</div>
+              {loadingSec >= 10 && (
+                <div style={{ fontFamily: MONO, fontSize: 9, color: C.ink4, lineHeight: 1.5 }}>
+                  {zh ? 'Pip 正在思考，通常需要 1-3 分钟…' : 'Pip is thinking, usually 1–3 min…'}
                 </div>
               )}
-
-              {/* Content pillars */}
-              {brand.contentPillars?.length > 0 && (
-                <div style={{ marginTop: 9, paddingTop: 9, borderTop: `1px solid ${C.border}` }}>
-                  <div style={{ fontFamily: MONO, fontSize: 8, color: C.ink4, letterSpacing: '0.06em', marginBottom: 6 }}>内容支柱</div>
-                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
-                    {brand.contentPillars.map(p => (
-                      <span key={p} style={{ fontFamily: SANS, fontSize: 10, padding: '2px 8px', borderRadius: 99, background: C.al, color: C.accent }}>{p}</span>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {/* Actions */}
-              <div style={{ marginTop: 10, paddingTop: 9, borderTop: `1px solid ${C.border}`, display: 'flex', gap: 5 }}>
-                <button onClick={() => goChat('帮我检查并更新品牌知识库，看看有什么需要补充的')} style={{
-                  flex: 1, padding: '6px 0', fontFamily: MONO, fontSize: 9, color: C.ink3,
-                  background: C.bg2, border: 'none', borderRadius: 6, cursor: 'pointer',
-                  letterSpacing: '0.04em',
-                }}>询问鸣更新</button>
-                <button onClick={() => router.push('/onboarding')} style={{
-                  flex: 1, padding: '6px 0', fontFamily: MONO, fontSize: 9, color: C.accent,
-                  background: C.al, border: 'none', borderRadius: 6, cursor: 'pointer',
-                  letterSpacing: '0.04em',
-                }}>更新品牌档案</button>
-              </div>
             </div>
           </div>
         )}
 
+        <div ref={bottomRef} />
+      </div>
+
+      {/* ── Input ── */}
+      <div style={{ padding: '8px 10px 12px', borderTop: `1px solid ${C.border}`, flexShrink: 0 }}>
+        <div style={{
+          display: 'flex', gap: 7, alignItems: 'flex-end',
+          background: C.bg1, borderRadius: 10, border: `1px solid ${C.border2}`, padding: '6px 8px',
+        }}
+          onFocusCapture={e => (e.currentTarget.style.borderColor = 'rgba(59,130,246,0.4)')}
+          onBlurCapture={e => (e.currentTarget.style.borderColor = C.border2)}
+        >
+          <textarea
+            ref={textareaRef}
+            value={input}
+            onChange={e => setInput(e.target.value)}
+            onKeyDown={onKey}
+            placeholder={zh ? '和 Pip 说任何事…' : 'Ask Pip anything…'}
+            rows={1}
+            style={{
+              flex: 1, border: 'none', outline: 'none', background: 'transparent',
+              fontFamily: SANS, fontSize: 12, color: C.ink,
+              lineHeight: 1.5, resize: 'none', maxHeight: 100, overflowY: 'auto',
+            }}
+          />
+          <button
+            onClick={() => send(input)}
+            disabled={!input.trim() || loading}
+            style={{
+              width: 28, height: 28, borderRadius: 7, border: 'none', flexShrink: 0,
+              background: input.trim() && !loading ? C.accent : C.bg2,
+              color:      input.trim() && !loading ? '#fff'    : C.ink4,
+              cursor:     input.trim() && !loading ? 'pointer'  : 'not-allowed',
+              display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 13,
+            }}
+          >↑</button>
+        </div>
       </div>
     </aside>
   )
 }
-
-function TodoRow({ todo, onToggle, onRemove }: { todo: TodoItem; onToggle: () => void; onRemove: () => void }) {
-  const [hover, setHover] = useState(false)
-  return (
-    <div onMouseEnter={() => setHover(true)} onMouseLeave={() => setHover(false)} style={{
-      display: 'flex', alignItems: 'center', gap: 8, padding: '8px 10px', borderRadius: 8,
-      border: `1px solid ${todo.done ? C.border : C.border2}`,
-      background: todo.done ? C.bg2 : '#fff',
-      boxShadow: todo.done ? 'none' : C.shadow,
-      transition: 'all 0.15s',
-    }}>
-      {/* Checkbox */}
-      <button onClick={onToggle} style={{
-        width: 16, height: 16, borderRadius: 4, border: `1.5px solid ${todo.done ? C.green : C.border2}`,
-        background: todo.done ? C.green : 'transparent', flexShrink: 0, cursor: 'pointer',
-        display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0,
-        transition: 'all 0.15s',
-      }}>
-        {todo.done && <svg width="9" height="9" fill="none" stroke="#fff" strokeWidth="2.5" viewBox="0 0 24 24"><path d="M20 6L9 17l-5-5"/></svg>}
-      </button>
-
-      {/* Text */}
-      <span style={{
-        fontFamily: SERIF, fontWeight: 300, fontSize: 12, color: todo.done ? C.ink4 : C.ink,
-        flex: 1, lineHeight: 1.5, textDecoration: todo.done ? 'line-through' : 'none',
-        transition: 'all 0.15s',
-      }}>{todo.text}</span>
-
-      {/* Delete */}
-      {hover && (
-        <button onClick={onRemove} style={{ background: 'none', border: 'none', cursor: 'pointer', color: C.ink4, padding: '0 2px', flexShrink: 0, lineHeight: 1 }}>
-          <svg width="10" height="10" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path d="M18 6L6 18M6 6l12 12"/></svg>
-        </button>
-      )}
-    </div>
-  )
-}
-
-// Export color tokens used in TodoRow
-const { border: _b, border2: _b2, bg2: _bg2, green: _g, ink: _i, ink4: _i4 } = C
-void _b; void _b2; void _bg2; void _g; void _i; void _i4

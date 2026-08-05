@@ -10,6 +10,8 @@
   },
   "dependencies": {
     "@ai-sdk/openai": "^3.0.74",
+    "@animocabrands/minds-client-lib": "^0.1.3",
+    "@xyflow/react": "^12.11.2",
     "ai": "^6.0.209",
     "cheerio": "^1.2.0",
     "framer-motion": "^12.42.0",
@@ -18,6 +20,9 @@
     "next": "16.2.9",
     "react": "19.2.4",
     "react-dom": "19.2.4",
+    "react-dropzone": "^20.0.0",
+    "react-icons": "^5.7.0",
+    "recharts": "^3.10.1",
     "zod": "^4.4.3",
     "zustand": "^5.0.14"
   },

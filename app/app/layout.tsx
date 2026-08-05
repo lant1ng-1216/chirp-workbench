@@ -1,5 +1,6 @@
 import LeftSidebar from '@/components/app/layout/LeftSidebar'
 import RightPanel from '@/components/app/layout/RightPanel'
+import TourDriver from '@/components/app/TourDriver'
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {
   return (
@@ -9,6 +10,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
         {children}
       </main>
       <RightPanel />
+      <TourDriver />
     </div>
   )
 }
