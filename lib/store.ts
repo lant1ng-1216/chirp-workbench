@@ -50,6 +50,30 @@ export interface Asset {
   platforms: string[]
   createdAt: string
   analyzing: boolean
+  /** Canvas position (React Flow node coords) */
+  x?: number
+  y?: number
+  /** User-provided description used for Pip analysis */
+  description?: string
+}
+
+export interface PipMessage {
+  id: string
+  role: 'user' | 'pip'
+  text: string
+  ts: number
+}
+
+export interface AssetEdge {
+  id: string
+  source: string
+  target: string
+}
+
+export interface PipInsight {
+  type: 'growth' | 'timing' | 'content' | 'warning'
+  text: string
+  action?: string
 }
 
 export interface Comment {
@@ -76,6 +100,18 @@ interface MingStore {
   lang: 'en' | 'zh'
   assets: Asset[]
   comments: Comment[]
+  /** Talk-to-Pip chat history, keyed by projectId */
+  pipMessages: Record<string, PipMessage[]>
+  /** Activated platform ids, keyed by projectId */
+  activePlatforms: Record<string, string[]>
+  /** Canvas edges between asset nodes, keyed by projectId */
+  assetEdges: Record<string, AssetEdge[]>
+  /** Latest Pip growth insights, keyed by projectId */
+  insights: Record<string, PipInsight[]>
+  /** Platforms with Pip auto-scheduling enabled, keyed by projectId */
+  autoPlatforms: Record<string, string[]>
+  /** Platform account handles, keyed by projectId then platformId */
+  platformHandles: Record<string, Record<string, string>>
 
   // Project actions
   addProject: (project: Project) => void
@@ -130,6 +166,17 @@ interface MingStore {
   addComment: (comment: Comment) => void
   updateComment: (id: string, updates: Partial<Comment>) => void
   addMockComments: (projectId: string) => void
+
+  // Pip chat actions
+  addPipMessage: (projectId: string, msg: PipMessage) => void
+  clearPipMessages: (projectId: string) => void
+
+  // Platform activation actions
+  togglePlatform: (projectId: string, platformId: string) => void
+  setPlatformHandle: (projectId: string, platformId: string, handle: string) => void
+  toggleAutoPlatform: (projectId: string, platformId: string) => void
+  setAssetEdges: (projectId: string, edges: AssetEdge[]) => void
+  setInsights: (projectId: string, insights: PipInsight[]) => void
 }
 
 export const useMingStore = create<MingStore>()(
@@ -146,6 +193,12 @@ export const useMingStore = create<MingStore>()(
       lang: 'en',
       assets: [],
       comments: [],
+      pipMessages: {},
+      activePlatforms: {},
+      autoPlatforms: {},
+      assetEdges: {},
+      insights: {},
+      platformHandles: {},
 
       addProject: (project) =>
         set((s) => ({
@@ -300,6 +353,44 @@ export const useMingStore = create<MingStore>()(
         if (existing.length > 0) return {}
         return { comments: [...mock, ...s.comments] }
       }),
+
+      addPipMessage: (projectId, msg) =>
+        set(s => ({
+          pipMessages: {
+            ...s.pipMessages,
+            [projectId]: [...(s.pipMessages[projectId] ?? []), msg].slice(-200),
+          },
+        })),
+      clearPipMessages: (projectId) =>
+        set(s => ({ pipMessages: { ...s.pipMessages, [projectId]: [] } })),
+
+      togglePlatform: (projectId, platformId) =>
+        set(s => {
+          const current = s.activePlatforms[projectId] ?? []
+          const next = current.includes(platformId)
+            ? current.filter(id => id !== platformId)
+            : [...current, platformId]
+          return { activePlatforms: { ...s.activePlatforms, [projectId]: next } }
+        }),
+      setPlatformHandle: (projectId, platformId, handle) =>
+        set(s => ({
+          platformHandles: {
+            ...s.platformHandles,
+            [projectId]: { ...(s.platformHandles[projectId] ?? {}), [platformId]: handle },
+          },
+        })),
+      toggleAutoPlatform: (projectId, platformId) =>
+        set(s => {
+          const current = s.autoPlatforms[projectId] ?? []
+          const next = current.includes(platformId)
+            ? current.filter(id => id !== platformId)
+            : [...current, platformId]
+          return { autoPlatforms: { ...s.autoPlatforms, [projectId]: next } }
+        }),
+      setAssetEdges: (projectId, edges) =>
+        set(s => ({ assetEdges: { ...s.assetEdges, [projectId]: edges } })),
+      setInsights: (projectId, insights) =>
+        set(s => ({ insights: { ...s.insights, [projectId]: insights } })),
     }),
     {
       name: 'chirp-store',

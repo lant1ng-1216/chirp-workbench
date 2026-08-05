@@ -46,20 +46,29 @@ function PipAvatar({ size = 28 }: { size?: number }) {
 export default function ChatPage() {
   const params = useParams()
   const projectId = params.projectId as string
-  const { projects, lang } = useMingStore()
+  const { projects, lang, pipMessages, addPipMessage } = useMingStore()
   const project = projects.find(p => p.id === projectId)
 
-  const [msgs, setMsgs] = useState<Msg[]>(() => [
-    { role: 'pip', text: '', ts: Date.now() }
-  ])
+  const stored = pipMessages[projectId] ?? []
+  const [msgs, setMsgs] = useState<Msg[]>([])
   const [input, setInput] = useState('')
   const [loading, setLoading] = useState(false)
   const bottomRef = useRef<HTMLDivElement>(null)
+  const hydratedRef = useRef(false)
 
-  // greeting is language-dependent, set it on mount and lang change
+  // Hydrate from persisted store once; greet only when there is no history
   useEffect(() => {
-    setMsgs([{ role: 'pip', text: t('chat.greeting', lang), ts: Date.now() }])
-  }, [lang])
+    if (hydratedRef.current) return
+    hydratedRef.current = true
+    if (stored.length > 0) {
+      setMsgs(stored.map(m => ({ role: m.role, text: m.text, ts: m.ts })))
+    } else {
+      const greeting: Msg = { role: 'pip', text: t('chat.greeting', lang), ts: Date.now() }
+      setMsgs([greeting])
+      addPipMessage(projectId, { id: `pip-${Date.now()}`, role: 'pip', text: greeting.text, ts: greeting.ts })
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [projectId])
 
   useEffect(() => { bottomRef.current?.scrollIntoView({ behavior: 'smooth' }) }, [msgs])
 
@@ -75,15 +84,23 @@ export default function ChatPage() {
 
   const send = async (text: string) => {
     if (!text.trim() || loading) return
-    const userMsg: Msg = { role: 'user', text: text.trim(), ts: Date.now() }
+    const trimmed = text.trim()
+    const userMsg: Msg = { role: 'user', text: trimmed, ts: Date.now() }
     setMsgs(prev => [...prev, userMsg])
+    addPipMessage(projectId, { id: `user-${Date.now()}`, role: 'user', text: trimmed, ts: userMsg.ts })
     setInput('')
     setLoading(true)
+
+    const pushPip = (replyText: string) => {
+      const pipMsg: Msg = { role: 'pip', text: replyText, ts: Date.now() }
+      setMsgs(prev => [...prev, pipMsg])
+      addPipMessage(projectId, { id: `pip-${Date.now()}`, role: 'pip', text: replyText, ts: pipMsg.ts })
+    }
 
     try {
       const alias = brand.mindsConversationAlias
       if (!alias) {
-        setMsgs(prev => [...prev, { role: 'pip', text: t('chat.noalias', lang), ts: Date.now() }])
+        pushPip(t('chat.noalias', lang))
         setLoading(false)
         return
       }
@@ -91,12 +108,12 @@ export default function ChatPage() {
       const res = await fetch('/api/minds/send', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ alias, message: text.trim() }),
+        body: JSON.stringify({ alias, message: trimmed }),
       })
       const data = await res.json()
-      setMsgs(prev => [...prev, { role: 'pip', text: data.reply ?? '…', ts: Date.now() }])
+      pushPip(data.reply ?? '…')
     } catch {
-      setMsgs(prev => [...prev, { role: 'pip', text: t('chat.error', lang), ts: Date.now() }])
+      pushPip(t('chat.error', lang))
     } finally {
       setLoading(false)
     }

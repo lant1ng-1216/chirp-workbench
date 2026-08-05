@@ -292,7 +292,6 @@ const dict: Record<string, Record<LangKey, string>> = {
   'platforms.notice':    { en: 'Mark the platforms you are active on. Pip will tailor content format, tone, and length for each one. Publishing API integration is in progress — use one-click copy for now.', zh: '标记你在运营的平台，Pip 会自动适配每个平台的格式。真实发布 API 接入中，目前请使用一键复制。' },
   'platforms.active':    { en: 'Mark as active',     zh: '标记关注' },
   'platforms.active.on': { en: 'Active ✓',           zh: '已关注 ✓' },
-  'platforms.guide':     { en: 'Publishing guide',   zh: '发布指南' },
 
   // Right panel
   'panel.content':          { en: 'Content',       zh: '内容输出' },

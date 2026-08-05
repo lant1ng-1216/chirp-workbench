@@ -121,16 +121,35 @@ function CommentCard({ comment, zh, onApprove, onIgnore }: {
   )
 }
 
+/* Local fallback classifier — used only if the Pip API call fails */
+function fallbackClassify(text: string): { sentiment: Comment['sentiment']; reply: string } {
+  const t = text.toLowerCase()
+  if (/buy followers|dm me|crypto|whatsapp|promote|check my page|免费领|加vx/i.test(t))
+    return { sentiment: 'spam', reply: '' }
+  if (/\?|what|how|which|when|where|can you|could you|什么|怎么|如何|哪|吗/i.test(t))
+    return { sentiment: 'question', reply: 'Great question! Let me get back to you with the details shortly — thanks for asking! 🙌' }
+  if (/hate|worst|bad|boring|trash|disappoint|awful|差|烂|无聊|失望/i.test(t))
+    return { sentiment: 'negative', reply: 'Thanks for the honest feedback — we hear you and will do better on the next one.' }
+  return { sentiment: 'positive', reply: 'Thank you so much for the support — it means a lot! 🙌' }
+}
+
 export default function CommunityPage() {
   const params = useParams()
   const projectId = params.projectId as string
-  const { comments, addMockComments, updateComment, lang } = useMingStore()
+  const { projects, comments, addMockComments, updateComment, lang, communityState, setCommunityState } = useMingStore()
   const zh = lang === 'zh'
   const [filter, setFilter] = useState<'all'|'positive'|'negative'|'question'|'spam'>('all')
   const [pasteMode, setPasteMode] = useState(false)
   const [pasteText, setPasteText] = useState('')
+  const [analyzing, setAnalyzing] = useState(false)
+  const [digestLoading, setDigestLoading] = useState(false)
 
   useEffect(() => { addMockComments(projectId) }, [projectId])
+
+  const project = projects.find(p => p.id === projectId)
+  const alias = project?.brand.mindsConversationAlias
+  const digest = communityState[projectId]?.lastDigest
+  const digestAt = communityState[projectId]?.digestUpdatedAt
 
   const projectComments = comments.filter(c => c.projectId === projectId)
   const pending = projectComments.filter(c => c.status === 'pending')
@@ -144,23 +163,72 @@ export default function CommunityPage() {
     spam: pending.filter(c=>c.sentiment==='spam').length,
   }
 
-  const handlePaste = () => {
-    if (!pasteText.trim()) return
+  const handlePaste = async () => {
+    if (!pasteText.trim() || analyzing) return
     const lines = pasteText.split('\n').filter(l=>l.trim())
-    lines.forEach((line, i) => {
+    const newComments: Comment[] = lines.map((line, i) => {
       const parts = line.split(':')
       const author = parts.length > 1 ? parts[0].trim() : `User${i+1}`
       const text = parts.length > 1 ? parts.slice(1).join(':').trim() : line.trim()
-      updateComment(`c-paste-${Date.now()}-${i}`, {})
-      const { addComment } = useMingStore.getState()
-      addComment({
+      return {
         id: `c-paste-${Date.now()}-${i}`,
         projectId, platform: 'youtube', author, text,
-        sentiment: 'pending', pipReply: '',
-        status: 'pending', createdAt: new Date().toISOString(),
-      })
+        sentiment: 'pending' as const, pipReply: '',
+        status: 'pending' as const, createdAt: new Date().toISOString(),
+      }
     })
+    const { addComment } = useMingStore.getState()
+    newComments.forEach(c => addComment(c))
     setPasteText(''); setPasteMode(false)
+
+    // Classify with Pip (real Minds call, user-triggered); fall back to local heuristic
+    setAnalyzing(true)
+    try {
+      if (!alias) throw new Error('no alias')
+      const res = await fetch('/api/minds/classify-comments', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          alias,
+          profile: project?.brand,
+          comments: newComments.map(c => ({ id: c.id, author: c.author, text: c.text, platform: c.platform })),
+        }),
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error || 'failed')
+      ;(data.results ?? []).forEach((r: { id: string; sentiment: Comment['sentiment']; reply: string }) => {
+        updateComment(r.id, { sentiment: r.sentiment, pipReply: r.reply })
+      })
+    } catch {
+      newComments.forEach(c => {
+        const fb = fallbackClassify(c.text)
+        updateComment(c.id, { sentiment: fb.sentiment, pipReply: fb.reply })
+      })
+    } finally {
+      setAnalyzing(false)
+    }
+  }
+
+  const generateDigest = async () => {
+    if (!alias || digestLoading) return
+    setDigestLoading(true)
+    try {
+      const res = await fetch('/api/minds/community', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ alias, profile: project?.brand }),
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error || 'failed')
+      setCommunityState(projectId, { lastDigest: data.digest, digestUpdatedAt: new Date().toISOString() })
+    } catch (e) {
+      setCommunityState(projectId, {
+        lastDigest: `${zh ? '日报生成失败' : 'Digest failed'}: ${e instanceof Error ? e.message : 'unknown'}`,
+        digestUpdatedAt: new Date().toISOString(),
+      })
+    } finally {
+      setDigestLoading(false)
+    }
   }
 
   return (
@@ -176,9 +244,9 @@ export default function CommunityPage() {
               {zh?'Pip 自动分类评论，起草回复建议':'Pip auto-classifies comments and drafts replies'}
             </p>
           </div>
-          <button onClick={() => setPasteMode(m=>!m)} style={{ display:'flex', alignItems:'center', gap:6, padding:'8px 16px', borderRadius:9, background:pasteMode?C.bg3:'linear-gradient(135deg,#3b82f6,#6366f1)', color:pasteMode?C.ink2:'#fff', border:pasteMode?`1px solid ${C.borderS}`:'none', cursor:'pointer', fontWeight:700, fontSize:12, boxShadow:pasteMode?'none':'0 2px 8px rgba(99,102,241,0.25)' }}>
+          <button onClick={() => setPasteMode(m=>!m)} disabled={analyzing} style={{ display:'flex', alignItems:'center', gap:6, padding:'8px 16px', borderRadius:9, background:pasteMode?C.bg3:'linear-gradient(135deg,#3b82f6,#6366f1)', color:pasteMode?C.ink2:'#fff', border:pasteMode?`1px solid ${C.borderS}`:'none', cursor:'pointer', fontWeight:700, fontSize:12, boxShadow:pasteMode?'none':'0 2px 8px rgba(99,102,241,0.25)', opacity:analyzing?0.6:1 }}>
             <svg width="11" height="11" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>
-            {zh?'粘贴评论':'Paste Comments'}
+            {analyzing ? (zh?'Pip 分类中…':'Pip classifying…') : (zh?'粘贴评论':'Paste Comments')}
           </button>
         </div>
       </div>
@@ -254,8 +322,36 @@ export default function CommunityPage() {
           </p>
         </div>
 
+        {/* Pip daily digest (on-demand, wired to CommunityState) */}
+        <div style={{ background:C.bg1, borderRadius:12, border:`1px solid ${C.borderS}`, padding:'14px 18px', boxShadow:C.shadow }}>
+          <div style={{ display:'flex', alignItems:'center', gap:8, marginBottom: digest ? 10 : 0 }}>
+            <div style={{ width:16, height:16, borderRadius:4, background:'linear-gradient(135deg,#3b82f6,#6366f1)', display:'flex', alignItems:'center', justifyContent:'center' }}>
+              <svg width="8" height="8" fill="#fff" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/></svg>
+            </div>
+            <span style={{ fontFamily:MONO, fontSize:9, color:C.accent }}>{zh?'Pip 社区日报':'PIP DAILY DIGEST'}</span>
+            {digestAt && <span style={{ fontFamily:MONO, fontSize:8, color:C.ink4 }}>{digestAt.slice(0,10)} {digestAt.slice(11,16)}</span>}
+            <button onClick={generateDigest} disabled={digestLoading || !alias} style={{
+              marginLeft:'auto', padding:'5px 12px', borderRadius:7, border:'none',
+              background: digestLoading ? C.bg3 : C.accent, color: digestLoading ? C.ink4 : '#fff',
+              fontFamily:MONO, fontSize:9, cursor: digestLoading ? 'not-allowed' : 'pointer',
+            }}>
+              {digestLoading ? (zh?'生成中…':'Generating…') : digest ? (zh?'重新生成':'Regenerate') : (zh?'生成日报':'Generate digest')}
+            </button>
+          </div>
+          {digest ? (
+            <p style={{ fontFamily:SANS, fontSize:12, color:C.ink2, margin:0, lineHeight:1.8, whiteSpace:'pre-wrap' }}>{digest}</p>
+          ) : (
+            <p style={{ fontFamily:SANS, fontSize:11, color:C.ink4, margin:'8px 0 0', lineHeight:1.6 }}>
+              {zh ? '点击生成，Pip 会汇总今日社区动态（消息量、回复数、热点话题），日报可推送到 Telegram / Email。' : 'Click generate — Pip summarizes today\'s community activity (messages, replies, hot topics). The digest can be pushed to Telegram / Email.'}
+            </p>
+          )}
+        </div>
+
         {/* Comment list */}
         <div style={{ display:'flex', flexDirection:'column', gap:10 }}>
+          <div style={{ fontFamily:MONO, fontSize:8, color:C.ink4, letterSpacing:'0.04em' }}>
+            {zh ? '示例收件箱 · 接入平台 API 后显示真实评论' : 'Sample inbox · live comments appear once a platform API is connected'}
+          </div>
           {filtered.length === 0 && (
             <div style={{ textAlign:'center', padding:'40px 20px', color:C.ink4, fontFamily:SANS, fontSize:13 }}>
               {zh?'没有待处理的评论 ✓':'No pending comments ✓'}

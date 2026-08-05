@@ -25,37 +25,18 @@ const LOGO_URL: Record<PlatformId, string> = {
 }
 
 function useActivePlatforms(projectId: string) {
-  const key = `chirp-platforms-${projectId}`
-  const [active, setActive] = useState<Set<PlatformId>>(() => {
-    if (typeof window === 'undefined') return new Set()
-    try { return new Set(JSON.parse(localStorage.getItem(key) || '[]') as PlatformId[]) }
-    catch { return new Set() }
-  })
-  const toggle = (id: PlatformId) => {
-    setActive(prev => {
-      const next = new Set(prev)
-      next.has(id) ? next.delete(id) : next.add(id)
-      localStorage.setItem(key, JSON.stringify([...next]))
-      return next
-    })
-  }
+  const activePlatforms = useMingStore(s => s.activePlatforms)
+  const togglePlatform = useMingStore(s => s.togglePlatform)
+  const active = new Set((activePlatforms[projectId] ?? []) as PlatformId[])
+  const toggle = (id: PlatformId) => togglePlatform(projectId, id)
   return { active, toggle }
 }
 
 function useHandles(projectId: string) {
-  const key = `chirp-handles-${projectId}`
-  const [handles, setHandles] = useState<Record<string, string>>(() => {
-    if (typeof window === 'undefined') return {}
-    try { return JSON.parse(localStorage.getItem(key) || '{}') }
-    catch { return {} }
-  })
-  const setHandle = (platformId: string, value: string) => {
-    setHandles(prev => {
-      const next = { ...prev, [platformId]: value }
-      localStorage.setItem(key, JSON.stringify(next))
-      return next
-    })
-  }
+  const platformHandles = useMingStore(s => s.platformHandles)
+  const setPlatformHandle = useMingStore(s => s.setPlatformHandle)
+  const handles = platformHandles[projectId] ?? {}
+  const setHandle = (platformId: string, value: string) => setPlatformHandle(projectId, platformId, value)
   return { handles, setHandle }
 }
 

@@ -1,6 +1,6 @@
 'use client'
-import { useState } from 'react'
-import { useParams } from 'next/navigation'
+import { useState, useEffect, Suspense } from 'react'
+import { useParams, useSearchParams } from 'next/navigation'
 import { useMingStore } from '@/lib/store'
 import { t } from '@/lib/i18n'
 import type { RepurposedContent } from '@/lib/store'
@@ -151,8 +151,9 @@ function PlatformCard({ platform, content, loading, lang, onAddToDraft }: {
   )
 }
 
-export default function WorkshopPage() {
+function WorkshopPageInner() {
   const params = useParams()
+  const searchParams = useSearchParams()
   const projectId = params.projectId as string
   const { projects, addRepurposedContent, addPost, lang } = useMingStore()
   const project = projects.find(p => p.id === projectId)
@@ -161,6 +162,13 @@ export default function WorkshopPage() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [result, setResult] = useState<{ youtube: string; instagram: string; tiktok: string; twitter: string } | null>(null)
+
+  // Prefill from other pages (Dashboard "Rewrite", Asset canvas "Send to Workshop")
+  useEffect(() => {
+    const prefill = searchParams.get('prefill')
+    if (prefill) setInput(prefill)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   if (!project) return null
 
@@ -300,5 +308,13 @@ export default function WorkshopPage() {
         </div>
       </div>
     </div>
+  )
+}
+
+export default function WorkshopPage() {
+  return (
+    <Suspense fallback={null}>
+      <WorkshopPageInner />
+    </Suspense>
   )
 }

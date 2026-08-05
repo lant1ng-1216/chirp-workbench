@@ -191,6 +191,11 @@ export default function CalendarPage() {
 
                       {isActive && (
                         <div style={{ padding: '10px 12px', background: C.bg1, borderRadius: '0 0 10px 10px', borderLeft: `1.5px solid ${C.border2}`, borderRight: `1.5px solid ${C.border2}`, borderBottom: `1.5px solid ${C.border2}`, marginTop: -6 }}>
+                          {post.status === 'scheduled' && post.scheduledAt && (
+                            <div style={{ fontFamily: MONO, fontSize: 9, color: '#f59e0b', marginBottom: 8 }}>
+                              {lang === 'zh' ? '排期于' : 'Scheduled for'} {post.scheduledAt.slice(0, 10)} {post.scheduledAt.slice(11, 16)}
+                            </div>
+                          )}
                           <div style={{ fontFamily: SANS, fontSize: 12, color: C.ink2, lineHeight: 1.8, marginBottom: 10, whiteSpace: 'pre-wrap' }}>
                             {post.content || post.title}
                           </div>
@@ -206,17 +211,32 @@ export default function CalendarPage() {
                               flex: 1, padding: '6px 0', borderRadius: 7, border: `1px solid ${C.border2}`,
                               background: '#fff', color: C.ink3, fontFamily: MONO, fontSize: 9, cursor: 'pointer',
                             }}>{copied ? t('calendar.copied', lang) : t('calendar.copy', lang)}</button>
-                            {post.status === 'draft' && (
-                              <button onClick={() => updatePost(projectId, post.id, { status: 'scheduled' })} style={{
+                            {post.status === 'draft' && selectedDay && (
+                              <button onClick={() => {
+                                // Schedule onto the currently-viewed day at 09:00 local time
+                                const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(selectedDay).padStart(2, '0')}T09:00:00`
+                                updatePost(projectId, post.id, { status: 'scheduled', scheduledAt: dateStr })
+                              }} style={{
                                 flex: 1, padding: '6px 0', borderRadius: 7, border: 'none',
                                 background: '#f59e0b', color: '#fff', fontFamily: MONO, fontSize: 9, cursor: 'pointer',
                               }}>{t('calendar.schedule', lang)}</button>
                             )}
-                            {post.status === 'scheduled' && (
-                              <button onClick={() => updatePost(projectId, post.id, { status: 'published', publishedAt: new Date().toISOString() })} style={{
-                                flex: 1, padding: '6px 0', borderRadius: 7, border: 'none',
-                                background: C.green, color: '#fff', fontFamily: MONO, fontSize: 9, cursor: 'pointer',
-                              }}>{t('calendar.markpub', lang)}</button>
+                            {post.status === 'scheduled' && selectedDay && (
+                              <>
+                                <button onClick={() => {
+                                  // Reschedule: move to the currently-viewed day, keep time
+                                  const time = post.scheduledAt?.slice(11) || '09:00:00'
+                                  const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(selectedDay).padStart(2, '0')}T${time}`
+                                  updatePost(projectId, post.id, { scheduledAt: dateStr })
+                                }} style={{
+                                  flex: 1, padding: '6px 0', borderRadius: 7, border: `1px solid #f59e0b`,
+                                  background: '#fff', color: '#f59e0b', fontFamily: MONO, fontSize: 9, cursor: 'pointer',
+                                }}>{lang === 'zh' ? '改期' : 'Move'}</button>
+                                <button onClick={() => updatePost(projectId, post.id, { status: 'published', publishedAt: new Date().toISOString() })} style={{
+                                  flex: 1, padding: '6px 0', borderRadius: 7, border: 'none',
+                                  background: C.green, color: '#fff', fontFamily: MONO, fontSize: 9, cursor: 'pointer',
+                                }}>{t('calendar.markpub', lang)}</button>
+                              </>
                             )}
                           </div>
                         </div>

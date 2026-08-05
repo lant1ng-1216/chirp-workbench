@@ -208,6 +208,22 @@ export default function LeftSidebar() {
           href={projectId ? `/app/${projectId}/community` : '#'}
           active={isActive('/community')}
         />
+
+        <div style={{ fontFamily: MONO, fontSize: 8, color: C.ink4, letterSpacing: '0.08em', padding: '10px 10px 6px', textTransform: 'uppercase' }}>
+          {lang === 'zh' ? '设置' : 'Settings'}
+        </div>
+        <NavItem
+          icon={<svg width="13" height="13" fill="none" stroke="currentColor" strokeWidth="1.5" viewBox="0 0 24 24"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>}
+          label={lang === 'zh' ? '与 Pip 对话' : 'Talk to Pip'}
+          href={projectId ? `/app/${projectId}/chat` : '#'}
+          active={isActive('/chat')}
+        />
+        <NavItem
+          icon={<svg width="13" height="13" fill="none" stroke="currentColor" strokeWidth="1.5" viewBox="0 0 24 24"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>}
+          label={lang === 'zh' ? '平台连接' : 'Platforms'}
+          href={projectId ? `/app/${projectId}/platforms` : '#'}
+          active={isActive('/platforms')}
+        />
       </div>
 
       {/* User chip */}

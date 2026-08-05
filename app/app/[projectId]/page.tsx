@@ -37,29 +37,47 @@ const PLATS = [
   { id: 'twitter',   label: 'X',         color: '#000000', bg: 'rgba(0,0,0,0.07)',        Icon: SiX         },
 ]
 
-/* ── mock activity log ── */
-const MOCK_LOG = [
-  { time: '14:07', type: 'gen',     zh: '为你生成了 4 篇平台草稿',                  en: 'Generated 4 platform drafts for you'         },
-  { time: '10:22', type: 'sched',   zh: 'Instagram 帖子已排期至明日 10:00',          en: 'Instagram post scheduled for tomorrow 10:00' },
-  { time: '09:05', type: 'publish', zh: 'YouTube 视频描述已发布',                   en: 'YouTube video description published'          },
-  { time: '昨天',  type: 'gen',     zh: '分析了你的内容表现，调整了下一轮写作风格',  en: 'Analyzed performance and tuned next content style' },
-  { time: '昨天',  type: 'sched',   zh: 'TikTok × 2、X × 5 已排入本周计划',        en: 'TikTok × 2, X × 5 queued for this week'     },
-]
+/* ── activity log derived from real store data ── */
+interface ActEntry { time: string; type: 'gen' | 'sched' | 'publish'; zh: string; en: string; ts: number }
 const LOG_COLORS: Record<string, string> = { gen: C.accent, sched: C.green, publish: C.purple }
+
+function fmtActTime(iso: string, zh: boolean): string {
+  const d = new Date(iso)
+  const now = new Date()
+  const sameDay = d.toDateString() === now.toDateString()
+  if (sameDay) return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`
+  const yesterday = new Date(now); yesterday.setDate(now.getDate() - 1)
+  if (d.toDateString() === yesterday.toDateString()) return zh ? '昨天' : 'Yest.'
+  return `${String(d.getMonth() + 1).padStart(2, '0')}/${String(d.getDate()).padStart(2, '0')}`
+}
+
+/** Next best local slot: tomorrow 09:00 (or sequential days for batch scheduling) */
+function nextSlotISO(daysAhead = 1): string {
+  const d = new Date()
+  d.setDate(d.getDate() + daysAhead)
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}T09:00:00`
+}
 
 /* ── Content Drawer ── */
 function ContentDrawer({
-  post, plat, zh, onClose, onApprove,
+  post, plat, zh, projectId, onClose, onApprove,
 }: {
   post: Post
   plat: typeof PLATS[0]
   zh: boolean
+  projectId: string
   onClose: () => void
   onApprove: () => void
 }) {
   const PlatIcon = plat.Icon
+  const router = useRouter()
   const [editing, setEditing] = useState(false)
   const [text, setText] = useState(post.content)
+
+  const saveEdit = () => {
+    useMingStore.getState().updatePost(projectId, post.id, { content: text, title: text.slice(0, 60) })
+    setEditing(false)
+  }
 
   return (
     <>
@@ -126,14 +144,14 @@ function ContentDrawer({
                 {zh ? '草稿内容' : 'DRAFT CONTENT'}
               </span>
               <button
-                onClick={() => setEditing(e => !e)}
+                onClick={() => (editing ? saveEdit() : setEditing(true))}
                 style={{
                   fontFamily: MONO, fontSize: 9, padding: '3px 9px', borderRadius: 5,
                   border: `1px solid ${C.borderS}`, background: editing ? C.accent : 'transparent',
                   color: editing ? '#fff' : C.ink4, cursor: 'pointer',
                 }}
               >
-                {editing ? (zh ? '完成' : 'Done') : (zh ? '编辑' : 'Edit')}
+                {editing ? (zh ? '保存' : 'Save') : (zh ? '编辑' : 'Edit')}
               </button>
             </div>
             {editing ? (
@@ -187,7 +205,7 @@ function ContentDrawer({
           {/* Action buttons */}
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
             {[
-              { label: zh ? '改写' : 'Rewrite', icon: 'M1 4v6h6M23 20v-6h-6', desc: zh ? '让 Pip 重新生成' : 'Let Pip regenerate' },
+              { label: zh ? '改写' : 'Rewrite', icon: 'M1 4v6h6M23 20v-6h-6', desc: zh ? '去工坊让 Pip 重写' : 'Rework in Workshop' },
               { label: zh ? '复制' : 'Copy', icon: 'M8 4H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2v-2M16 4h2a2 2 0 0 0 2 2v4', desc: zh ? '复制到剪贴板' : 'Copy to clipboard' },
             ].map(btn => (
               <button key={btn.label} style={{
@@ -197,7 +215,11 @@ function ContentDrawer({
               }}
                 onMouseEnter={e => (e.currentTarget.style.background = C.bg3)}
                 onMouseLeave={e => (e.currentTarget.style.background = C.bg2)}
-                onClick={btn.label === (zh ? '复制' : 'Copy') ? () => navigator.clipboard?.writeText(text) : undefined}
+                onClick={
+                  btn.label === (zh ? '复制' : 'Copy')
+                    ? () => navigator.clipboard?.writeText(text)
+                    : () => router.push(`/app/${projectId}/workshop?prefill=${encodeURIComponent(text)}&platform=${plat.id}`)
+                }
               >
                 <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 3 }}>
                   <svg width="11" height="11" fill="none" stroke={C.ink3} strokeWidth="1.8" viewBox="0 0 24 24"><path d={btn.icon}/></svg>
@@ -216,16 +238,17 @@ function ContentDrawer({
 
 /* ── Platform Agent Card ── */
 function AgentCard({
-  plat, drafts, zh, projectId, onSelect,
+  plat, drafts, zh, projectId, auto, onToggleAuto, onSelect,
 }: {
   plat: typeof PLATS[0]
   drafts: Post[]
   zh: boolean
   projectId: string
+  auto: boolean
+  onToggleAuto: () => void
   onSelect: (post: Post) => void
 }) {
   const PlatIcon = plat.Icon
-  const [auto, setAuto] = useState(false)
   const router = useRouter()
 
   return (
@@ -244,10 +267,11 @@ function AgentCard({
         <span style={{ fontWeight: 700, fontSize: 13, color: C.ink, flex: 1 }}>{plat.label}</span>
 
         {/* Auto toggle */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
-          <span style={{ fontFamily: MONO, fontSize: 8, color: C.ink4 }}>{zh ? '自动' : 'Auto'}</span>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}
+          title={zh ? '开启后 Pip 自动把该平台草稿排入日历' : 'Pip auto-schedules drafts for this platform'}>
+          <span style={{ fontFamily: MONO, fontSize: 8, color: auto ? C.green : C.ink4 }}>{zh ? '自动' : 'Auto'}</span>
           <button
-            onClick={() => setAuto(a => !a)}
+            onClick={onToggleAuto}
             style={{
               width: 32, height: 18, borderRadius: 99, border: 'none', cursor: 'pointer',
               background: auto ? C.green : C.bg3,
@@ -315,7 +339,7 @@ function AgentCard({
               {/* Inline action buttons */}
               <div style={{ display: 'flex', gap: 5, flexShrink: 0 }} onClick={e => e.stopPropagation()}>
                 <button
-                  onClick={() => useMingStore.getState().updatePost(projectId, post.id, { status: 'published' })}
+                  onClick={() => useMingStore.getState().updatePost(projectId, post.id, { status: 'published', publishedAt: new Date().toISOString() })}
                   style={{
                     padding: '4px 10px', borderRadius: 6, border: 'none', cursor: 'pointer',
                     background: plat.bg, color: plat.color,
@@ -328,7 +352,7 @@ function AgentCard({
                   {zh ? '发布' : 'Publish'}
                 </button>
                 <button
-                  onClick={() => useMingStore.getState().updatePost(projectId, post.id, { status: 'scheduled', scheduledAt: new Date().toISOString() })}
+                  onClick={() => useMingStore.getState().updatePost(projectId, post.id, { status: 'scheduled', scheduledAt: nextSlotISO(1) })}
                   style={{
                     width: 28, height: 28, borderRadius: 6, border: `1px solid ${C.borderS}`,
                     cursor: 'pointer', background: 'transparent',
@@ -343,6 +367,11 @@ function AgentCard({
               </div>
             </div>
           ))
+        )}
+        {auto && drafts.length > 0 && (
+          <div style={{ padding: '4px 14px 8px', fontFamily: MONO, fontSize: 8, color: C.green }}>
+            {zh ? '● 自动排期已开启 · 草稿将自动进入日历' : '● Auto-scheduling on · drafts go to calendar'}
+          </div>
         )}
         {drafts.length > 3 && (
           <div style={{ padding: '6px 14px 10px' }}>
@@ -360,7 +389,7 @@ function AgentCard({
 export default function OverviewPage() {
   const params    = useParams()
   const projectId = params.projectId as string
-  const { projects, setActiveProject, lang } = useMingStore()
+  const { projects, setActiveProject, lang, activePlatforms, autoPlatforms, toggleAutoPlatform, repurposedContent } = useMingStore()
   const zh = lang === 'zh'
 
   const [selectedPost, setSelectedPost] = useState<Post | null>(null)
@@ -385,11 +414,59 @@ export default function OverviewPage() {
 
   const posts          = project.posts ?? []
   const draftPosts     = posts.filter(p => p.status === 'draft')
-  const scheduledPosts = posts.filter(p => p.status === 'scheduled')
+  const scheduledPosts = posts
+    .filter(p => p.status === 'scheduled')
+    .sort((a, b) => (a.scheduledAt ?? '').localeCompare(b.scheduledAt ?? ''))
   const publishedPosts = posts.filter(p => p.status === 'published')
+
+  // Only show platforms the creator activated (all four if none chosen yet)
+  const activated = activePlatforms[projectId] ?? []
+  const visiblePlats = activated.length > 0 ? PLATS.filter(pl => activated.includes(pl.id)) : PLATS
 
   const getDraftsByPlatform = (platId: string) =>
     draftPosts.filter(p => p.platform === platId)
+
+  // Auto toggle: ON → Pip schedules all current drafts of that platform onto upcoming days
+  const handleToggleAuto = (platId: string) => {
+    const isOn = (autoPlatforms[projectId] ?? []).includes(platId)
+    toggleAutoPlatform(projectId, platId)
+    if (!isOn) {
+      getDraftsByPlatform(platId).forEach((post, i) => {
+        useMingStore.getState().updatePost(projectId, post.id, { status: 'scheduled', scheduledAt: nextSlotISO(i + 1) })
+      })
+    }
+  }
+
+  // Real activity feed derived from store data (newest first, top 6)
+  const activity: ActEntry[] = []
+  posts.forEach(p => {
+    const platName = PLATS.find(pl => pl.id === p.platform)?.label ?? p.platform
+    activity.push({
+      ts: Date.parse(p.createdAt) || 0, type: 'gen', time: fmtActTime(p.createdAt, zh),
+      zh: `为 ${platName} 起草了新内容`, en: `Drafted new ${platName} content`,
+    })
+    if (p.status === 'scheduled' && p.scheduledAt) {
+      activity.push({
+        ts: (Date.parse(p.scheduledAt) || 0) - 1, type: 'sched', time: fmtActTime(p.createdAt, zh),
+        zh: `${platName} 帖子已排期至 ${p.scheduledAt.slice(0, 10)} ${p.scheduledAt.slice(11, 16)}`,
+        en: `${platName} post scheduled for ${p.scheduledAt.slice(0, 10)} ${p.scheduledAt.slice(11, 16)}`,
+      })
+    }
+    if (p.status === 'published' && p.publishedAt) {
+      activity.push({
+        ts: Date.parse(p.publishedAt) || 0, type: 'publish', time: fmtActTime(p.publishedAt, zh),
+        zh: `${platName} 内容已发布`, en: `${platName} content published`,
+      })
+    }
+  })
+  repurposedContent
+    .filter(r => r.projectId === projectId)
+    .forEach(r => activity.push({
+      ts: Date.parse(r.createdAt) || 0, type: 'gen', time: fmtActTime(r.createdAt, zh),
+      zh: '完成了一次四平台内容改写', en: 'Repurposed content for 4 platforms',
+    }))
+  activity.sort((a, b) => b.ts - a.ts)
+  const activityLog = activity.slice(0, 6)
 
   const selectedPlat = selectedPost
     ? PLATS.find(pl => pl.id === selectedPost.platform) ?? PLATS[0]
@@ -547,13 +624,15 @@ export default function OverviewPage() {
           </div>
 
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-            {PLATS.map(plat => (
+            {visiblePlats.map(plat => (
               <AgentCard
                 key={plat.id}
                 plat={plat}
                 drafts={getDraftsByPlatform(plat.id)}
                 zh={zh}
                 projectId={projectId}
+                auto={(autoPlatforms[projectId] ?? []).includes(plat.id)}
+                onToggleAuto={() => handleToggleAuto(plat.id)}
                 onSelect={setSelectedPost}
               />
             ))}
@@ -574,18 +653,20 @@ export default function OverviewPage() {
             </div>
 
             <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-              {scheduledPosts.map((post, i) => {
-                const plat = PLATS.find(pl => pl.id === post.platform || (post.platform === 'x' && pl.id === 'twitter')) ?? PLATS[0]
+              {scheduledPosts.map((post) => {
+                const plat = PLATS.find(pl => pl.id === post.platform) ?? PLATS[0]
                 const PlatIcon = plat.Icon
-                const times = ['09:00', '12:30', '15:00', '18:00', '20:30']
+                const when = post.scheduledAt
+                  ? `${post.scheduledAt.slice(5, 10)} ${post.scheduledAt.slice(11, 16)}`
+                  : '—'
                 return (
                   <div key={post.id} style={{
                     background: C.bg1, borderRadius: 10, border: `1px solid ${C.border}`,
                     padding: '10px 14px', display: 'flex', alignItems: 'center', gap: 12,
                     boxShadow: C.shadow,
                   }}>
-                    <span style={{ fontFamily: MONO, fontSize: 12, fontWeight: 700, color: C.accent, width: 44, flexShrink: 0 }}>
-                      {times[i % times.length]}
+                    <span style={{ fontFamily: MONO, fontSize: 11, fontWeight: 700, color: C.accent, width: 76, flexShrink: 0 }}>
+                      {when}
                     </span>
                     <div style={{ width: 1, height: 28, background: C.border, flexShrink: 0 }} />
                     <div style={{ width: 26, height: 26, borderRadius: 7, background: plat.bg, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
@@ -620,9 +701,14 @@ export default function OverviewPage() {
               </span>
             </div>
             <div style={{ padding: '12px 16px', display: 'flex', flexDirection: 'column', gap: 8 }}>
-              {MOCK_LOG.map((entry, i) => (
+              {activityLog.length === 0 && (
+                <div style={{ fontFamily: MONO, fontSize: 10, color: 'rgba(255,255,255,0.4)', lineHeight: 1.6 }}>
+                  {zh ? '还没有活动记录 — 去内容工坊生成第一批内容吧' : 'No activity yet — generate your first content in the Workshop'}
+                </div>
+              )}
+              {activityLog.map((entry, i) => (
                 <div key={i} style={{ display: 'flex', gap: 12, alignItems: 'flex-start' }}>
-                  <span style={{ fontFamily: MONO, fontSize: 9, color: 'rgba(255,255,255,0.25)', flexShrink: 0, width: 36 }}>{entry.time}</span>
+                  <span style={{ fontFamily: MONO, fontSize: 9, color: 'rgba(255,255,255,0.25)', flexShrink: 0, width: 40 }}>{entry.time}</span>
                   <span style={{ fontFamily: MONO, fontSize: 9, color: LOG_COLORS[entry.type], flexShrink: 0 }}>
                     {entry.type === 'gen' ? '>' : entry.type === 'sched' ? '●' : '✓'}
                   </span>
@@ -632,7 +718,7 @@ export default function OverviewPage() {
                 </div>
               ))}
               <div style={{ display: 'flex', gap: 12, marginTop: 4 }}>
-                <span style={{ fontFamily: MONO, fontSize: 9, color: 'rgba(255,255,255,0.25)', width: 36 }} />
+                <span style={{ fontFamily: MONO, fontSize: 9, color: 'rgba(255,255,255,0.25)', width: 40 }} />
                 <span style={{ fontFamily: MONO, fontSize: 9, color: C.green }}>_</span>
                 <span style={{ fontFamily: MONO, fontSize: 10, color: C.green, animation: 'blink 1.2s step-end infinite' }}>
                   {zh ? 'Pip 待命中，随时为你生成内容' : 'Pip is standing by — ready to generate'}
@@ -650,9 +736,10 @@ export default function OverviewPage() {
           post={selectedPost}
           plat={selectedPlat}
           zh={zh}
+          projectId={projectId}
           onClose={() => setSelectedPost(null)}
           onApprove={() => {
-            useMingStore.getState().updatePost(projectId, selectedPost.id, { status: 'scheduled', scheduledAt: new Date().toISOString() })
+            useMingStore.getState().updatePost(projectId, selectedPost.id, { status: 'scheduled', scheduledAt: nextSlotISO(1) })
             setSelectedPost(null)
           }}
         />
