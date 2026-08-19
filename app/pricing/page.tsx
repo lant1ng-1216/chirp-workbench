@@ -8,7 +8,6 @@ import { t } from '@/lib/i18n'
 
 const SANS = "'Inter', -apple-system, sans-serif"
 const MONO = "'Space Mono', monospace"
-const BLUE = '#3b82f6'
 
 type Lang = 'en' | 'zh'
 
@@ -16,183 +15,147 @@ function useReveal(threshold = 0.1) {
   const ref = useRef<HTMLDivElement>(null)
   const [vis, setVis] = useState(false)
   useEffect(() => {
-    const el = ref.current; if (!el) return
-    const obs = new IntersectionObserver(
-      ([e]) => { if (e.isIntersecting) { setVis(true); obs.disconnect() } },
-      { threshold }
-    )
-    obs.observe(el); return () => obs.disconnect()
+    const el = ref.current
+    if (!el) return
+    const obs = new IntersectionObserver(([e]) => {
+      if (e.isIntersecting) { setVis(true); obs.disconnect() }
+    }, { threshold })
+    obs.observe(el)
+    return () => obs.disconnect()
   }, [threshold])
   return { ref, vis }
 }
 
-function CheckIcon({ active }: { active: boolean }) {
-  if (!active) return (
-    <span style={{ fontFamily: MONO, fontSize: 12, color: 'rgba(0,0,0,0.15)', lineHeight: 1 }}>—</span>
-  )
-  return (
-    <svg width="15" height="15" viewBox="0 0 15 15" fill="none" style={{ flexShrink: 0 }}>
-      <circle cx="7.5" cy="7.5" r="7.5" fill={BLUE} fillOpacity="0.12" />
-      <path d="M4.5 8l2 2 4-4" stroke={BLUE} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-    </svg>
-  )
-}
+const FEATURES_LIVE = [
+  'pp.feat.canvas',
+  'pp.feat.grounded',
+  'pp.feat.repurpose',
+  'pp.feat.schedule',
+  'pp.feat.plan',
+  'pp.feat.memory',
+] as const
+
+const FEATURES_STUDIO_EXTRA = ['pp.feat.later'] as const
 
 const PLANS = [
   {
-    key: 'pp.free' as const,
-    popular: false,
-    origPrice: null,
-    features: [
-      { key: 'pp.feat.memory',    has: true  },
-      { key: 'pp.feat.platforms', has: true  },
-      { key: 'pp.feat.workshop',  has: true  },
-      { key: 'pp.feat.calendar',  has: true  },
-      { key: 'pp.feat.telegram',  has: true,  note: '1 group' },
-      { key: 'pp.feat.analytics', has: true  },
-      { key: 'pp.feat.priority',  has: false },
-      { key: 'pp.feat.advanced',  has: false },
-      { key: 'pp.feat.team',      has: false },
-      { key: 'pp.feat.roles',     has: false },
-    ],
+    key: 'pp.live' as const,
+    live: true,
+    href: '/dashboard',
+    features: FEATURES_LIVE,
   },
   {
-    key: 'pp.pro' as const,
-    popular: true,
-    origPrice: '$19',
-    features: [
-      { key: 'pp.feat.memory',    has: true  },
-      { key: 'pp.feat.platforms', has: true  },
-      { key: 'pp.feat.workshop',  has: true  },
-      { key: 'pp.feat.calendar',  has: true  },
-      { key: 'pp.feat.telegram',  has: true,  note: '5 groups' },
-      { key: 'pp.feat.analytics', has: true  },
-      { key: 'pp.feat.priority',  has: true  },
-      { key: 'pp.feat.advanced',  has: true  },
-      { key: 'pp.feat.team',      has: false },
-      { key: 'pp.feat.roles',     has: false },
-    ],
+    key: 'pp.creator' as const,
+    live: false,
+    href: '/dashboard',
+    features: FEATURES_LIVE,
   },
   {
-    key: 'pp.team' as const,
-    popular: false,
-    origPrice: '$199',
-    features: [
-      { key: 'pp.feat.memory',    has: true  },
-      { key: 'pp.feat.platforms', has: true  },
-      { key: 'pp.feat.workshop',  has: true  },
-      { key: 'pp.feat.calendar',  has: true  },
-      { key: 'pp.feat.telegram',  has: true,  note: 'Unlimited' },
-      { key: 'pp.feat.analytics', has: true  },
-      { key: 'pp.feat.priority',  has: true  },
-      { key: 'pp.feat.advanced',  has: true  },
-      { key: 'pp.feat.team',      has: true  },
-      { key: 'pp.feat.roles',     has: true  },
-    ],
+    key: 'pp.studio' as const,
+    live: false,
+    href: '/sponsors',
+    features: [...FEATURES_LIVE, ...FEATURES_STUDIO_EXTRA],
   },
 ]
 
-function PlanCard({ plan, lang, delay }: { plan: typeof PLANS[number]; lang: Lang; delay: number }) {
+function PlanCard({
+  plan, lang, delay,
+}: {
+  plan: (typeof PLANS)[number]
+  lang: Lang
+  delay: number
+}) {
   const { ref, vis } = useReveal(0.05)
-  const isPopular = plan.popular
+  const live = plan.live
 
   return (
-    <div ref={ref} style={{
-      flex: 1,
-      border: isPopular ? `1.5px solid ${BLUE}40` : '1.5px solid rgba(0,0,0,0.08)',
-      borderTop: isPopular ? `3px solid ${BLUE}` : '1.5px solid rgba(0,0,0,0.08)',
-      borderRadius: 16,
-      background: isPopular ? `linear-gradient(160deg, ${BLUE}06 0%, #fff 60%)` : '#fff',
-      padding: '32px 28px 28px',
-      boxShadow: isPopular
-        ? `0 8px 40px ${BLUE}18, 0 1px 3px rgba(0,0,0,0.04)`
-        : '0 1px 3px rgba(0,0,0,0.04)',
-      position: 'relative',
-      opacity: vis ? 1 : 0,
-      transform: vis ? 'none' : 'translateY(20px)',
-      transition: `opacity 0.6s ${delay}ms ease, transform 0.6s ${delay}ms ease`,
-    }}>
-      {isPopular && (
-        <div style={{
-          position: 'absolute', top: -12, left: '50%', transform: 'translateX(-50%)',
-          background: BLUE, borderRadius: 100, padding: '3px 14px',
-          fontFamily: MONO, fontSize: 8, color: '#fff', letterSpacing: '0.12em',
-          whiteSpace: 'nowrap', boxShadow: `0 2px 12px ${BLUE}40`,
-        }}>
-          MOST POPULAR
-        </div>
-      )}
+    <div
+      ref={ref}
+      style={{
+        flex: 1,
+        minWidth: 0,
+        border: live ? '1.5px solid rgba(17,24,39,0.18)' : '1px solid rgba(17,24,39,0.1)',
+        borderRadius: 16,
+        background: live ? '#fff' : 'rgba(255,255,255,0.65)',
+        padding: '28px 24px 26px',
+        boxShadow: live ? '0 12px 40px rgba(17,24,39,0.06)' : 'none',
+        opacity: vis ? 1 : 0,
+        transform: vis ? 'none' : 'translateY(18px)',
+        transition: `opacity 0.55s ${delay}ms ease, transform 0.55s ${delay}ms ease`,
+      }}
+    >
+      <div style={{
+        display: 'inline-block',
+        fontFamily: MONO, fontSize: 8, letterSpacing: '0.12em',
+        color: live ? '#16a34a' : 'rgba(17,24,39,0.4)',
+        border: `1px solid ${live ? 'rgba(22,163,74,0.35)' : 'rgba(17,24,39,0.12)'}`,
+        padding: '3px 8px', marginBottom: 14,
+      }}>
+        {t(`${plan.key}.tag`, lang)}
+      </div>
 
-      {/* Plan name */}
-      <div style={{ fontFamily: MONO, fontSize: 9, letterSpacing: '0.14em', textTransform: 'uppercase', color: isPopular ? BLUE : 'rgba(0,0,0,0.3)', marginBottom: 16 }}>
+      <div style={{
+        fontFamily: MONO, fontSize: 10, letterSpacing: '0.12em',
+        textTransform: 'uppercase', color: 'rgba(17,24,39,0.4)', marginBottom: 12,
+      }}>
         {t(`${plan.key}.name`, lang)}
       </div>
 
-      {/* Price */}
-      <div style={{ marginBottom: 10 }}>
-        {plan.origPrice && (
-          <div style={{ display: 'flex', alignItems: 'baseline', gap: 4, marginBottom: 4 }}>
-            <span style={{ fontFamily: SANS, fontWeight: 500, fontSize: 18, letterSpacing: '-0.02em', color: 'rgba(0,0,0,0.2)', textDecoration: 'line-through', lineHeight: 1 }}>
-              {plan.origPrice}
-            </span>
-            <span style={{ fontFamily: SANS, fontSize: 12, color: 'rgba(0,0,0,0.18)', textDecoration: 'line-through' }}>
-              {t(`${plan.key}.period`, lang)}
-            </span>
-          </div>
-        )}
-        <div style={{ display: 'flex', alignItems: 'baseline', gap: 4 }}>
-          <span style={{ fontFamily: SANS, fontWeight: 700, fontSize: 44, letterSpacing: '-0.04em', color: isPopular ? BLUE : 'rgba(0,0,0,0.85)', lineHeight: 1 }}>
-            {plan.origPrice ? '$0' : t(`${plan.key}.price`, lang)}
-          </span>
-          <span style={{ fontFamily: SANS, fontSize: 13, color: 'rgba(0,0,0,0.3)' }}>
-            {plan.origPrice ? 'during beta' : t(`${plan.key}.period`, lang)}
-          </span>
-        </div>
+      <div style={{ display: 'flex', alignItems: 'baseline', gap: 6, marginBottom: 10 }}>
+        <span style={{
+          fontFamily: SANS, fontWeight: 700, fontSize: 40,
+          letterSpacing: '-0.04em', color: '#111827', lineHeight: 1,
+        }}>
+          {t(`${plan.key}.price`, lang)}
+        </span>
+        <span style={{ fontFamily: SANS, fontSize: 13, color: 'rgba(17,24,39,0.38)' }}>
+          {t(`${plan.key}.period`, lang)}
+        </span>
       </div>
 
-      {/* Description */}
-      <p style={{ fontFamily: SANS, fontSize: 13, color: 'rgba(0,0,0,0.42)', lineHeight: 1.65, marginBottom: 24, minHeight: 44 }}>
+      <p style={{
+        fontFamily: SANS, fontSize: 13, color: 'rgba(17,24,39,0.48)',
+        lineHeight: 1.65, margin: '0 0 22px', minHeight: 62,
+      }}>
         {t(`${plan.key}.desc`, lang)}
       </p>
 
-      {/* CTA */}
-      <Link href="/onboarding" style={{ textDecoration: 'none', display: 'block', marginBottom: 28 }}>
-        <button style={{
-          width: '100%', fontFamily: SANS, fontWeight: 600, fontSize: 14,
-          padding: '12px 0', borderRadius: 10,
-          background: isPopular ? BLUE : 'transparent',
-          color: isPopular ? '#fff' : 'rgba(0,0,0,0.65)',
-          border: isPopular ? 'none' : '1.5px solid rgba(0,0,0,0.14)',
-          cursor: 'pointer', transition: 'opacity 0.15s, transform 0.15s',
-          boxShadow: isPopular ? `0 4px 20px ${BLUE}35` : 'none',
-        }}
-        onMouseEnter={e => { e.currentTarget.style.opacity = '0.82'; e.currentTarget.style.transform = 'translateY(-1px)' }}
-        onMouseLeave={e => { e.currentTarget.style.opacity = '1';    e.currentTarget.style.transform = 'none' }}
-        >{t(`${plan.key}.cta`, lang)}</button>
+      <Link href={plan.href} style={{ textDecoration: 'none', display: 'block', marginBottom: 24 }}>
+        <button
+          style={{
+            width: '100%', fontFamily: SANS, fontWeight: 600, fontSize: 14,
+            padding: '12px 0', borderRadius: 10,
+            background: live ? '#111827' : 'transparent',
+            color: live ? '#fff' : 'rgba(17,24,39,0.65)',
+            border: live ? 'none' : '1.5px solid rgba(17,24,39,0.14)',
+            cursor: 'pointer',
+          }}
+        >
+          {t(`${plan.key}.cta`, lang)}
+        </button>
       </Link>
 
-      {/* Divider */}
-      <div style={{ borderTop: '1px solid rgba(0,0,0,0.06)', paddingTop: 24 }}>
-        <div style={{ fontFamily: MONO, fontSize: 8, color: 'rgba(0,0,0,0.2)', letterSpacing: '0.12em', marginBottom: 14 }}>
-          INCLUDED
+      <div style={{ borderTop: '1px solid rgba(17,24,39,0.07)', paddingTop: 18 }}>
+        <div style={{
+          fontFamily: MONO, fontSize: 8, color: 'rgba(17,24,39,0.28)',
+          letterSpacing: '0.12em', marginBottom: 12,
+        }}>
+          {t('pp.included', lang)}
         </div>
-
-        {/* Features */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 11 }}>
-          {plan.features.map(f => (
-            <div key={f.key} style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-              <CheckIcon active={f.has} />
-              <span style={{ fontFamily: SANS, fontSize: 13, color: f.has ? 'rgba(0,0,0,0.58)' : 'rgba(0,0,0,0.2)', lineHeight: 1.3, flex: 1 }}>
-                {t(f.key, lang)}
-              </span>
-              {'note' in f && f.note && f.has && (
-                <span style={{ fontFamily: MONO, fontSize: 9, color: isPopular ? BLUE : 'rgba(0,0,0,0.3)', letterSpacing: '0.04em', whiteSpace: 'nowrap' }}>
-                  {f.note}
-                </span>
-              )}
-            </div>
+        <ul style={{ listStyle: 'none', margin: 0, padding: 0, display: 'flex', flexDirection: 'column', gap: 10 }}>
+          {plan.features.map(key => (
+            <li key={key} style={{
+              display: 'flex', gap: 10, alignItems: 'flex-start',
+              fontFamily: SANS, fontSize: 13, color: 'rgba(17,24,39,0.55)', lineHeight: 1.4,
+            }}>
+              <span style={{
+                width: 5, height: 5, borderRadius: 999, marginTop: 6, flexShrink: 0,
+                background: key === 'pp.feat.later' ? 'rgba(17,24,39,0.2)' : '#111827',
+              }} />
+              {t(key, lang)}
+            </li>
           ))}
-        </div>
+        </ul>
       </div>
     </div>
   )
@@ -200,63 +163,106 @@ function PlanCard({ plan, lang, delay }: { plan: typeof PLANS[number]; lang: Lan
 
 export default function PricingPage() {
   const { lang } = useMingStore()
+  const L = lang as Lang
   const hero = useReveal(0.1)
   const note = useReveal(0.1)
 
   return (
-    <main style={{ background: '#ffffff', minHeight: '100vh' }}>
+    <main style={{ background: '#f7f7f8', minHeight: '100vh' }}>
       <Navbar light />
 
-      {/* Hero */}
-      <section style={{ padding: '128px 32px 64px', textAlign: 'center' }}>
-        <div ref={hero.ref} style={{ maxWidth: 600, margin: '0 auto', opacity: hero.vis ? 1 : 0, transform: hero.vis ? 'none' : 'translateY(20px)', transition: 'opacity 0.65s ease, transform 0.65s ease' }}>
-
-          {/* Beta badge */}
-          <div style={{ display: 'inline-flex', alignItems: 'center', gap: 8, background: `${BLUE}0d`, border: `1px solid ${BLUE}30`, borderRadius: 100, padding: '6px 16px', marginBottom: 32 }}>
-            <span style={{ width: 6, height: 6, borderRadius: '50%', background: BLUE, display: 'inline-block' }} />
-            <span style={{ fontFamily: MONO, fontSize: 10, color: BLUE, letterSpacing: '0.06em' }}>
-              {t('pp.beta.badge', lang as Lang)}
+      <section style={{ padding: '120px 32px 48px', textAlign: 'center' }}>
+        <div
+          ref={hero.ref}
+          style={{
+            maxWidth: 640, margin: '0 auto',
+            opacity: hero.vis ? 1 : 0,
+            transform: hero.vis ? 'none' : 'translateY(16px)',
+            transition: 'opacity 0.6s ease, transform 0.6s ease',
+          }}
+        >
+          <div style={{
+            display: 'inline-flex', alignItems: 'center', gap: 8,
+            border: '1px solid rgba(17,24,39,0.12)', borderRadius: 100,
+            padding: '6px 14px', marginBottom: 28, background: '#fff',
+          }}>
+            <span style={{ width: 6, height: 6, borderRadius: 999, background: '#16a34a' }} />
+            <span style={{ fontFamily: MONO, fontSize: 10, color: 'rgba(17,24,39,0.55)', letterSpacing: '0.06em' }}>
+              {t('pp.beta.badge', L)}
             </span>
           </div>
 
-          <div style={{ fontFamily: MONO, fontSize: 9, color: 'rgba(0,0,0,0.25)', letterSpacing: '0.2em', textTransform: 'uppercase', marginBottom: 20 }}>
-            {t('pp.eyebrow', lang as Lang)}
+          <div style={{
+            fontFamily: MONO, fontSize: 9, color: 'rgba(17,24,39,0.32)',
+            letterSpacing: '0.18em', textTransform: 'uppercase', marginBottom: 16,
+          }}>
+            {t('pp.eyebrow', L)}
           </div>
 
-          <h1 style={{ fontFamily: SANS, fontWeight: 700, fontSize: 'clamp(34px, 5vw, 52px)', color: 'rgba(0,0,0,0.88)', lineHeight: 1.1, letterSpacing: '-0.03em', marginBottom: 20 }}>
-            {t('pp.h1a', lang as Lang)}<br />
-            <span style={{ fontWeight: 300, color: 'rgba(0,0,0,0.25)' }}>{t('pp.h1b', lang as Lang)}</span>
+          <h1 style={{
+            fontFamily: SANS, fontWeight: 700,
+            fontSize: 'clamp(30px, 4.5vw, 46px)',
+            color: '#111827', lineHeight: 1.15, letterSpacing: '-0.03em', margin: '0 0 16px',
+          }}>
+            {t('pp.h1a', L)}
+            <br />
+            <span style={{ fontWeight: 300, color: 'rgba(17,24,39,0.4)' }}>{t('pp.h1b', L)}</span>
           </h1>
 
-          <p style={{ fontFamily: SANS, fontSize: 15, color: 'rgba(0,0,0,0.38)', lineHeight: 1.8 }}>
-            {t('pp.sub', lang as Lang)}
+          <p style={{
+            fontFamily: SANS, fontSize: 15, color: 'rgba(17,24,39,0.48)', lineHeight: 1.75, margin: 0,
+          }}>
+            {t('pp.sub', L)}
           </p>
         </div>
       </section>
 
-      {/* Cards */}
-      <section style={{ padding: '0 40px 100px' }}>
-        <div style={{ maxWidth: 980, margin: '0 auto', display: 'flex', gap: 20, alignItems: 'flex-start' }}>
+      <section style={{ padding: '0 28px 56px' }}>
+        <div className="pp-grid" style={{
+          maxWidth: 1000, margin: '0 auto',
+          display: 'flex', gap: 16, alignItems: 'stretch',
+        }}>
           {PLANS.map((plan, i) => (
-            <PlanCard key={plan.key} plan={plan} lang={lang as Lang} delay={i * 80} />
+            <PlanCard key={plan.key} plan={plan} lang={L} delay={i * 70} />
           ))}
         </div>
       </section>
 
-      {/* Minds note */}
-      <section style={{ padding: '0 32px 100px' }}>
-        <div ref={note.ref} style={{ maxWidth: 560, margin: '0 auto', textAlign: 'center', borderTop: '1px solid rgba(0,0,0,0.06)', paddingTop: 48, opacity: note.vis ? 1 : 0, transition: 'opacity 0.7s ease' }}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, marginBottom: 14 }}>
-            <img src="/minds-logo.png" alt="Minds" style={{ height: 14, opacity: 0.18 }} />
-            <span style={{ fontFamily: MONO, fontSize: 8, color: 'rgba(0,0,0,0.18)', letterSpacing: '0.12em' }}>MINDS BY ANIMOCA BRANDS</span>
+      <section style={{ padding: '0 32px 96px' }}>
+        <div
+          ref={note.ref}
+          style={{
+            maxWidth: 520, margin: '0 auto', textAlign: 'center',
+            borderTop: '1px solid rgba(17,24,39,0.08)', paddingTop: 40,
+            opacity: note.vis ? 1 : 0, transition: 'opacity 0.6s ease',
+          }}
+        >
+          <p style={{
+            fontFamily: SANS, fontSize: 13, color: 'rgba(17,24,39,0.4)',
+            lineHeight: 1.75, margin: '0 0 20px',
+          }}>
+            {t('pp.note', L)}
+          </p>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, marginBottom: 10 }}>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src="/minds-logo.png" alt="" style={{ height: 13, opacity: 0.2 }} />
+            <span style={{ fontFamily: MONO, fontSize: 8, color: 'rgba(17,24,39,0.28)', letterSpacing: '0.1em' }}>
+              MINDS BY ANIMOCA BRANDS
+            </span>
           </div>
-          <p style={{ fontFamily: SANS, fontSize: 13, color: 'rgba(0,0,0,0.28)', lineHeight: 1.8 }}>
-            {t('pp.minds.note', lang as Lang)}
+          <p style={{ fontFamily: SANS, fontSize: 12, color: 'rgba(17,24,39,0.32)', lineHeight: 1.7, margin: 0 }}>
+            {t('pp.minds.note', L)}
           </p>
         </div>
       </section>
 
       <Footer />
+
+      <style>{`
+        @media (max-width: 900px) {
+          .pp-grid { flex-direction: column !important; }
+        }
+      `}</style>
     </main>
   )
 }

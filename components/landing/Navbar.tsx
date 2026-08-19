@@ -9,8 +9,7 @@ const MONO = "'Space Mono', monospace"
 
 export default function Navbar({ light = false }: { light?: boolean }) {
   const [scrolled, setScrolled] = useState(false)
-  const [hydrated, setHydrated] = useState(false)
-  const { lang, setLang, projects } = useMingStore()
+  const { lang, setLang } = useMingStore()
 
   useEffect(() => {
     const fn = () => setScrolled(window.scrollY > 40)
@@ -18,14 +17,7 @@ export default function Navbar({ light = false }: { light?: boolean }) {
     return () => window.removeEventListener('scroll', fn)
   }, [])
 
-  // Wait for localStorage hydration before determining dashboard route
-  useEffect(() => { setHydrated(true) }, [])
-
-  const dashboardHref = !hydrated
-    ? '/onboarding'
-    : projects.length > 0
-      ? '/dashboard'
-      : '/onboarding'
+  const dashboardHref = '/dashboard'
 
   const ink        = light ? 'rgba(0,0,0,0.75)'  : 'rgba(255,255,255,0.95)'
   const inkMuted   = light ? 'rgba(0,0,0,0.38)'  : 'rgba(255,255,255,0.45)'
@@ -72,6 +64,7 @@ export default function Navbar({ light = false }: { light?: boolean }) {
           { key: 'nav.dashboard', href: dashboardHref },
           { key: 'nav.pricing',   href: '/pricing' },
           { key: 'nav.about',     href: '/about' },
+          { key: 'nav.sponsors',  href: '/sponsors' },
         ] as { key: string; href: string }[]).map(link => (
           <Link key={link.key} href={link.href} style={{ textDecoration: 'none' }}>
             <span style={{
@@ -105,7 +98,7 @@ export default function Navbar({ light = false }: { light?: boolean }) {
           {lang === 'en' ? 'EN | 中' : '中 | EN'}
         </button>
 
-        <Link href="/onboarding" style={{ textDecoration: 'none' }}>
+        <Link href="/dashboard" style={{ textDecoration: 'none' }}>
           <button style={{
             fontFamily: SANS, fontWeight: 600, padding: '8px 18px', borderRadius: 8,
             fontSize: 13, background: ctaBg, color: ctaClr,

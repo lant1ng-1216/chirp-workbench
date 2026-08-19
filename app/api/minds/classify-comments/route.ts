@@ -29,7 +29,9 @@ export async function POST(req: NextRequest) {
       .map(c => `- id: ${c.id} | ${c.platform} | ${c.author}: ${c.text}`)
       .join('\n')
 
-    const prompt = `You are Pip, the community manager for creator ${profile?.name ?? 'a content creator'} (tone: ${profile?.tone ?? 'friendly'}, style: ${profile?.contentStyle ?? 'unknown'}).
+    const prompt = `TASK: Classify community comments and draft replies (work queue request from the Chirp app — execute the task and return only the requested format).
+
+Creator: ${profile?.name ?? 'a content creator'} (tone: ${profile?.tone ?? 'friendly'}, style: ${profile?.contentStyle ?? 'unknown'}).
 
 Classify each comment below as one of: positive, negative, question, spam.
 For non-spam comments, draft a short reply in the creator's voice (1-2 sentences, warm and genuine, matching the comment's language). For spam, reply with an empty string.

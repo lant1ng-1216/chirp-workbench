@@ -2,8 +2,8 @@ import type { Metadata } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "Chirp — Your AI Chief of Staff for Content",
-  description: "Pip, your always-on AI content agent, remembers your style, repurposes your content for every platform, and manages your community — without you having to ask.",
+  title: "Chirp — Canvas workbench powered by Minds",
+  description: "Chirp is an infinite canvas for knowledge, assets, and multi-platform content — with Minds as the agent that plans, applies workflows, and runs grounded drafts.",
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

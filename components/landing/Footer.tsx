@@ -14,9 +14,9 @@ export default function Footer() {
       titleKey: 'footer.col1',
       links: [
         { key: 'footer.l.features',   href: '/about' },
-        { key: 'footer.l.platforms',  href: '/pricing' },
-        { key: 'footer.l.howitworks', href: '/features#how' },
-        { key: 'footer.l.changelog',  href: '#' },
+        { key: 'footer.l.pricing',    href: '/pricing' },
+        { key: 'footer.l.howitworks', href: '/#howitworks' },
+        { key: 'footer.l.sponsors',   href: '/sponsors' },
       ],
     },
     {
@@ -32,9 +32,9 @@ export default function Footer() {
       titleKey: 'footer.col3',
       links: [
         { key: 'footer.l.about',   href: '/about' },
-        { key: 'footer.l.contact', href: '#' },
+        { key: 'footer.l.sponsors', href: '/sponsors' },
+        { key: 'footer.l.contact', href: 'mailto:zfu9751@gmail.com' },
         { key: 'footer.l.privacy', href: '#' },
-        { key: 'footer.l.terms',   href: '#' },
       ],
     },
   ]
@@ -69,7 +69,7 @@ export default function Footer() {
         </div>
         <div style={{ borderTop: '1px solid rgba(255,255,255,0.07)', paddingTop: 24, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
           <span style={{ fontFamily: MONO, fontSize: 10, color: 'rgba(255,255,255,0.16)', letterSpacing: '0.06em' }}>{t('footer.copy', lang)}</span>
-          <Link href="/onboarding" style={{ textDecoration: 'none' }}>
+          <Link href="/dashboard" style={{ textDecoration: 'none' }}>
             <button style={{
               fontFamily: SANS, fontWeight: 600, padding: '8px 20px', borderRadius: 8,
               fontSize: 13, background: 'rgba(255,255,255,0.95)', color: '#111827',

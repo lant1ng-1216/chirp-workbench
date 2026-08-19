@@ -15,54 +15,112 @@ export default function CtaSection() {
   useEffect(() => {
     const el = ref.current
     if (!el) return
-    const obs = new IntersectionObserver(([e]) => { if (e.isIntersecting) { setVisible(true); obs.disconnect() } }, { threshold: 0.2 })
+    const obs = new IntersectionObserver(([e]) => {
+      if (e.isIntersecting) { setVisible(true); obs.disconnect() }
+    }, { threshold: 0.2 })
     obs.observe(el)
     return () => obs.disconnect()
   }, [])
 
   return (
-    <section style={{ background: '#3b82f6', padding: '64px 32px' }}>
+    <section style={{
+      position: 'relative',
+      overflow: 'hidden',
+      padding: '88px 32px',
+      background: '#0c0c12',
+    }}>
+      {/* Atmosphere — not flat blue slab */}
+      <div style={{
+        position: 'absolute', inset: 0, pointerEvents: 'none',
+        background: `
+          radial-gradient(ellipse 70% 60% at 20% 30%, rgba(220, 100, 70, 0.18) 0%, transparent 55%),
+          radial-gradient(ellipse 55% 50% at 85% 70%, rgba(56, 120, 160, 0.16) 0%, transparent 50%),
+          linear-gradient(180deg, #0c0c12 0%, #12121a 100%)
+        `,
+      }} />
+      <div style={{
+        position: 'absolute', inset: 0, pointerEvents: 'none', opacity: 0.35,
+        backgroundImage: `url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.45'/%3E%3C/svg%3E")`,
+        mixBlendMode: 'overlay',
+      }} />
+
       <div
         ref={ref}
         style={{
+          position: 'relative', zIndex: 1,
           maxWidth: 720, margin: '0 auto', textAlign: 'center',
-          opacity: visible ? 1 : 0, transform: visible ? 'none' : 'translateY(24px)',
+          opacity: visible ? 1 : 0,
+          transform: visible ? 'none' : 'translateY(20px)',
           transition: 'opacity 0.7s ease, transform 0.7s ease',
         }}
       >
-        <div style={{ fontFamily: MONO, fontSize: 9, color: 'rgba(255,255,255,0.4)', letterSpacing: '0.2em', textTransform: 'uppercase' as const, marginBottom: 28 }}>
+        <div style={{
+          fontFamily: MONO, fontSize: 9,
+          color: 'rgba(255,255,255,0.35)',
+          letterSpacing: '0.2em', textTransform: 'uppercase', marginBottom: 24,
+        }}>
           {t('cta.eyebrow', lang)}
         </div>
 
-        <h2 style={{ fontFamily: SANS, fontWeight: 700, fontSize: 'clamp(28px, 4vw, 48px)', color: 'rgba(255,255,255,0.95)', lineHeight: 1.12, marginBottom: 20, letterSpacing: '-0.02em' }}>
-          {t('cta.h2a', lang)}<br />
-          <span style={{ fontWeight: 300, color: 'rgba(255,255,255,0.35)' }}>{t('cta.h2b', lang)}</span>
+        <h2 style={{
+          fontFamily: SANS, fontWeight: 700,
+          fontSize: 'clamp(28px, 4.2vw, 46px)',
+          color: 'rgba(255,255,255,0.94)',
+          lineHeight: 1.12, marginBottom: 18, letterSpacing: '-0.03em',
+        }}>
+          {t('cta.h2a', lang)}
+          <br />
+          <span style={{ fontWeight: 300, color: 'rgba(255,255,255,0.38)' }}>
+            {t('cta.h2b', lang)}
+          </span>
         </h2>
 
-        <p style={{ fontFamily: SANS, fontWeight: 400, fontSize: 15, color: 'rgba(255,255,255,0.45)', lineHeight: 1.8, marginBottom: 44, whiteSpace: 'pre-line' as const }}>
+        <p style={{
+          fontFamily: SANS, fontWeight: 400, fontSize: 15,
+          color: 'rgba(255,255,255,0.42)', lineHeight: 1.75,
+          marginBottom: 36, whiteSpace: 'pre-line',
+        }}>
           {t('cta.sub', lang)}
         </p>
 
-        <Link href="/onboarding" style={{ textDecoration: 'none' }}>
+        <Link href="/dashboard" style={{ textDecoration: 'none' }}>
           <button
             style={{
-              fontFamily: SANS, fontWeight: 600, padding: '16px 44px', borderRadius: 12,
-              background: 'rgba(255,255,255,0.97)', color: '#3b82f6',
-              border: 'none', cursor: 'pointer', fontSize: 16,
-              boxShadow: '0 4px 32px rgba(0,0,0,0.15)',
+              fontFamily: SANS, fontWeight: 600, padding: '15px 36px', borderRadius: 11,
+              background: 'rgba(255,255,255,0.96)', color: '#0c0c12',
+              border: 'none', cursor: 'pointer', fontSize: 15, letterSpacing: '-0.01em',
+              boxShadow: '0 8px 32px rgba(0,0,0,0.35)',
               transition: 'opacity 0.18s, transform 0.18s',
             }}
-            onMouseEnter={e => { e.currentTarget.style.opacity = '0.88'; e.currentTarget.style.transform = 'translateY(-2px)' }}
-            onMouseLeave={e => { e.currentTarget.style.opacity = '1'; e.currentTarget.style.transform = 'none' }}
-          >{t('cta.button', lang)}</button>
+            onMouseEnter={e => {
+              e.currentTarget.style.opacity = '0.9'
+              e.currentTarget.style.transform = 'translateY(-2px)'
+            }}
+            onMouseLeave={e => {
+              e.currentTarget.style.opacity = '1'
+              e.currentTarget.style.transform = 'none'
+            }}
+          >
+            {t('cta.button', lang)}
+          </button>
         </Link>
 
-        <div style={{ marginTop: 20, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 16 }}>
+        <div style={{
+          marginTop: 22, display: 'flex', alignItems: 'center',
+          justifyContent: 'center', gap: 14, flexWrap: 'wrap',
+        }}>
           {[t('cta.free', lang), t('cta.nosignup', lang), t('cta.setup', lang)].map((text, i) => (
-            <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
-              {i > 0 && <span style={{ width: 1, height: 10, background: 'rgba(255,255,255,0.2)', display: 'inline-block' }} />}
-              <span style={{ fontFamily: MONO, fontSize: 9, color: 'rgba(255,255,255,0.3)', letterSpacing: '0.08em' }}>{text}</span>
-            </div>
+            <span key={text} style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+              {i > 0 && (
+                <span style={{ width: 1, height: 10, background: 'rgba(255,255,255,0.18)' }} />
+              )}
+              <span style={{
+                fontFamily: MONO, fontSize: 9,
+                color: 'rgba(255,255,255,0.28)', letterSpacing: '0.08em',
+              }}>
+                {text}
+              </span>
+            </span>
           ))}
         </div>
       </div>

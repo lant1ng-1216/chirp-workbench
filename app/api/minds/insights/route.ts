@@ -18,9 +18,9 @@ export async function POST(req: NextRequest) {
     const { alias, profile, stats } = await req.json()
     if (!alias) return NextResponse.json({ error: 'alias is required' }, { status: 400 })
 
-    const prompt = `You are Pip, the AI growth agent for creator ${profile?.name ?? 'a content creator'}.
+    const prompt = `TASK: Produce growth insights for a creator (work queue request from the Chirp app — execute the task and return only the requested format).
 
-Creator profile:
+Creator profile ("${profile?.name ?? 'a content creator'}"):
 - Content style: ${profile?.contentStyle ?? 'unknown'}
 - Audience: ${profile?.audience ?? 'unknown'}
 - Tone: ${profile?.tone ?? 'unknown'}

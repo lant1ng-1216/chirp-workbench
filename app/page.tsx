@@ -2,6 +2,7 @@
 import Navbar from '@/components/landing/Navbar'
 import Hero from '@/components/landing/Hero'
 import TransitionBand from '@/components/landing/TransitionBand'
+import ProductIntro from '@/components/landing/ProductIntro'
 import PlatformShowcase from '@/components/landing/PlatformShowcase'
 import CoreSection from '@/components/landing/CoreSection'
 import CtaSection from '@/components/landing/CtaSection'
@@ -13,6 +14,7 @@ export default function LandingPage() {
       <Navbar />
       <Hero />
       <TransitionBand />
+      <ProductIntro />
       <PlatformShowcase />
       <CoreSection />
       <CtaSection />

@@ -1,7 +1,11 @@
 'use client'
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
-import type { Project, Thread, Message, Post } from './brand'
+import type { Project, Thread, Message, Post, PlatformAccount } from './brand'
+import type { CanvasGraph, KnowledgeEntry } from './canvas'
+import { emptyGraph } from './canvas'
+import type { BoardTask } from './workbench/boardTasks'
+import type { WorkbenchTheme } from './workbench/theme'
 
 export interface ExtractedCard {
   id: string
@@ -17,6 +21,8 @@ export interface TodoItem {
   projectId: string
   text: string
   done: boolean
+  /** Member id this task is assigned to (undefined = unassigned) */
+  assignee?: string
   createdAt: string
 }
 
@@ -76,6 +82,53 @@ export interface PipInsight {
   action?: string
 }
 
+export type ActivityType =
+  | 'repurpose' | 'analyze' | 'draft' | 'schedule' | 'publish'
+  | 'digest' | 'chat' | 'insight' | 'connect' | 'comment'
+
+export interface ActivityEvent {
+  id: string
+  projectId: string
+  ts: number
+  type: ActivityType
+  /** Short headline, written in the UI language active at creation time */
+  title: string
+  /** Optional detail line */
+  detail?: string
+  platform?: string
+  /** 'sample' marks demo events shown before Pip is connected */
+  source?: 'real' | 'sample'
+  /** Member id who performed the action ('pip' for the agent, undefined = you) */
+  actor?: string
+}
+
+/** A live Pip job, e.g. a workshop generation run — drives cross-page "working" animations */
+export interface PipJob {
+  id: string
+  projectId: string
+  kind: 'repurpose' | 'analyze'
+  /** Platform ids this job is producing for */
+  platforms: string[]
+  /** Free-form stage label, e.g. 'sense' | 'draft' | 'format' */
+  stage: number
+  startedAt: number
+}
+
+/** A teammate in the workspace (or Pip itself) */
+export interface Member {
+  id: string
+  projectId: string
+  name: string
+  role: 'owner' | 'editor' | 'agent'
+  /** DiceBear seed + style */
+  avatarSeed: string
+  avatarStyle: string
+  status: 'online' | 'away'
+  /** What they're currently doing, shown under their name */
+  focus?: string
+  joinedAt: string
+}
+
 export interface Comment {
   id: string
   projectId: string
@@ -86,6 +139,10 @@ export interface Comment {
   pipReply: string
   status: 'pending' | 'replied' | 'ignored'
   createdAt: string
+  /** Platform-native object id (e.g. X tweet id) — needed to send real replies */
+  externalId?: string
+  /** Canonical URL of the original comment/tweet */
+  externalUrl?: string
 }
 
 interface MingStore {
@@ -96,7 +153,6 @@ interface MingStore {
   extractedCards: ExtractedCard[]
   repurposedContent: RepurposedContent[]
   communityState: Record<string, CommunityState>
-  touredProjects: string[]
   lang: 'en' | 'zh'
   assets: Asset[]
   comments: Comment[]
@@ -112,12 +168,56 @@ interface MingStore {
   autoPlatforms: Record<string, string[]>
   /** Platform account handles, keyed by projectId then platformId */
   platformHandles: Record<string, Record<string, string>>
+  /** Connected publishing accounts, keyed by projectId then platformId */
+  platformAccounts: Record<string, Record<string, PlatformAccount>>
+  /** Pip activity feed, keyed by projectId (newest first, capped at 100) */
+  activityLog: Record<string, ActivityEvent[]>
+  /** Currently running Pip jobs (ephemeral — not persisted) */
+  jobs: PipJob[]
+  /** Workspace members, keyed by projectId */
+  members: Record<string, Member[]>
+  /** Active invite codes, keyed by projectId */
+  inviteCodes: Record<string, string>
+  /** Ephemeral: member filter applied to activity feeds (not persisted) */
+  activityActorFilter: string | null
+  setActivityActorFilter: (memberId: string | null) => void
+  /** Demo mode: when ON, sample content (mock comments, sample activity, sample teammates,
+   *  GitHub sample card) is shown for presentation. OFF by default — real usage shows real data only. */
+  demoMode: boolean
+  setDemoMode: (on: boolean) => void
+
+  /** Workbench canvas graphs, keyed by projectId */
+  canvases: Record<string, CanvasGraph>
+  setCanvas: (projectId: string, graph: CanvasGraph) => void
+  patchCanvas: (projectId: string, patch: Partial<CanvasGraph>) => void
+  ensureCanvas: (projectId: string) => CanvasGraph
+
+  /** Project knowledge library (sidebar + pin-to-canvas) */
+  knowledgeEntries: Record<string, KnowledgeEntry[]>
+  addKnowledgeEntry: (entry: KnowledgeEntry) => void
+  updateKnowledgeEntry: (projectId: string, id: string, updates: Partial<KnowledgeEntry>) => void
+  removeKnowledgeEntry: (projectId: string, id: string) => void
+
+  /** Schedule + todo board (Filter Table), keyed by projectId */
+  boardTasks: Record<string, BoardTask[]>
+  addBoardTask: (task: BoardTask) => void
+  updateBoardTask: (projectId: string, id: string, updates: Partial<BoardTask>) => void
+  removeBoardTask: (projectId: string, id: string) => void
+
+  /** Workbench chrome theme (canvas shell only) */
+  workbenchTheme: WorkbenchTheme
+  setWorkbenchTheme: (theme: WorkbenchTheme) => void
 
   // Project actions
   addProject: (project: Project) => void
   removeProject: (id: string) => void
+  updateProject: (id: string, updates: Partial<Project>) => void
   setActiveProject: (id: string) => void
   getActiveProject: () => Project | null
+  /** Create local canvas project only — no Agent/Minds binding */
+  createWorkbenchProject: (name: string) => Promise<{ projectId: string; error?: string }>
+  /** Lazy-init Minds conversation on first node Run / chat */
+  ensureMindsForProject: (projectId: string) => Promise<{ ok: true; alias: string } | { ok: false; error: string }>
 
   // Thread actions
   setActiveThread: (id: string | null) => void
@@ -151,9 +251,6 @@ interface MingStore {
   // Community actions
   setCommunityState: (projectId: string, state: Partial<CommunityState>) => void
 
-  // Tour
-  completeTour: (projectId: string) => void
-
   // Language
   setLang: (lang: 'en' | 'zh') => void
 
@@ -174,9 +271,25 @@ interface MingStore {
   // Platform activation actions
   togglePlatform: (projectId: string, platformId: string) => void
   setPlatformHandle: (projectId: string, platformId: string, handle: string) => void
+  connectPlatform: (projectId: string, account: PlatformAccount) => void
+  disconnectPlatform: (projectId: string, platformId: string) => void
   toggleAutoPlatform: (projectId: string, platformId: string) => void
   setAssetEdges: (projectId: string, edges: AssetEdge[]) => void
   setInsights: (projectId: string, insights: PipInsight[]) => void
+
+  // Activity feed
+  logActivity: (projectId: string, event: Omit<ActivityEvent, 'id' | 'projectId' | 'ts'>) => void
+
+  // Live jobs (not persisted)
+  startJob: (job: Omit<PipJob, 'id' | 'startedAt' | 'stage'>) => string
+  setJobStage: (id: string, stage: number) => void
+  finishJob: (id: string) => void
+
+  // Workspace members & invites
+  addMember: (member: Member) => void
+  removeMember: (projectId: string, memberId: string) => void
+  setMemberStatus: (projectId: string, memberId: string, status: Member['status'], focus?: string) => void
+  ensureInviteCode: (projectId: string) => string
 }
 
 export const useMingStore = create<MingStore>()(
@@ -189,7 +302,6 @@ export const useMingStore = create<MingStore>()(
       extractedCards: [],
       repurposedContent: [],
       communityState: {},
-      touredProjects: [],
       lang: 'en',
       assets: [],
       comments: [],
@@ -199,28 +311,199 @@ export const useMingStore = create<MingStore>()(
       assetEdges: {},
       insights: {},
       platformHandles: {},
+      platformAccounts: {},
+      activityLog: {},
+      jobs: [],
+      members: {},
+      inviteCodes: {},
+      activityActorFilter: null,
+      setActivityActorFilter: (memberId) => set({ activityActorFilter: memberId }),
+      demoMode: false,
+      setDemoMode: (on) => set({ demoMode: on }),
+
+      canvases: {},
+      knowledgeEntries: {},
+      boardTasks: {},
+      workbenchTheme: 'dark',
+      setWorkbenchTheme: (theme) => set({ workbenchTheme: theme }),
+
+      setCanvas: (projectId, graph) =>
+        set(s => ({
+          canvases: {
+            ...s.canvases,
+            [projectId]: { ...graph, updatedAt: new Date().toISOString() },
+          },
+        })),
+      patchCanvas: (projectId, patch) =>
+        set(s => {
+          const prev = s.canvases[projectId] ?? emptyGraph()
+          return {
+            canvases: {
+              ...s.canvases,
+              [projectId]: { ...prev, ...patch, updatedAt: new Date().toISOString() },
+            },
+          }
+        }),
+      ensureCanvas: (projectId) => {
+        const existing = get().canvases[projectId]
+        if (existing) return existing
+        const g = emptyGraph()
+        set(s => ({ canvases: { ...s.canvases, [projectId]: g } }))
+        return g
+      },
+
+      addKnowledgeEntry: (entry) =>
+        set(s => ({
+          knowledgeEntries: {
+            ...s.knowledgeEntries,
+            [entry.projectId]: [...(s.knowledgeEntries[entry.projectId] ?? []), entry],
+          },
+        })),
+      updateKnowledgeEntry: (projectId, id, updates) =>
+        set(s => ({
+          knowledgeEntries: {
+            ...s.knowledgeEntries,
+            [projectId]: (s.knowledgeEntries[projectId] ?? []).map(e =>
+              e.id === id ? { ...e, ...updates, updatedAt: new Date().toISOString() } : e
+            ),
+          },
+        })),
+      removeKnowledgeEntry: (projectId, id) =>
+        set(s => ({
+          knowledgeEntries: {
+            ...s.knowledgeEntries,
+            [projectId]: (s.knowledgeEntries[projectId] ?? []).filter(e => e.id !== id),
+          },
+        })),
+
+      addBoardTask: (task) =>
+        set(s => ({
+          boardTasks: {
+            ...s.boardTasks,
+            [task.projectId]: [...(s.boardTasks[task.projectId] ?? []), task],
+          },
+        })),
+      updateBoardTask: (projectId, id, updates) =>
+        set(s => ({
+          boardTasks: {
+            ...s.boardTasks,
+            [projectId]: (s.boardTasks[projectId] ?? []).map(t =>
+              t.id === id ? { ...t, ...updates } : t
+            ),
+          },
+        })),
+      removeBoardTask: (projectId, id) =>
+        set(s => ({
+          boardTasks: {
+            ...s.boardTasks,
+            [projectId]: (s.boardTasks[projectId] ?? []).filter(t => t.id !== id),
+          },
+        })),
 
       addProject: (project) =>
         set((s) => ({
           projects: [...s.projects, project],
           activeProjectId: project.id,
+          canvases: { ...s.canvases, [project.id]: s.canvases[project.id] ?? emptyGraph() },
+          knowledgeEntries: { ...s.knowledgeEntries, [project.id]: s.knowledgeEntries[project.id] ?? [] },
+          boardTasks: { ...s.boardTasks, [project.id]: s.boardTasks[project.id] ?? [] },
         })),
 
       removeProject: (id) =>
         set((s) => {
           const remaining = s.projects.filter((p) => p.id !== id)
+          const { [id]: _c, ...canvases } = s.canvases
+          const { [id]: _k, ...knowledgeEntries } = s.knowledgeEntries
+          const { [id]: _b, ...boardTasks } = s.boardTasks
           return {
             projects: remaining,
             activeProjectId: s.activeProjectId === id ? (remaining[0]?.id ?? null) : s.activeProjectId,
             activeThreadId: s.activeProjectId === id ? null : s.activeThreadId,
+            canvases,
+            knowledgeEntries,
+            boardTasks,
           }
         }),
+
+      updateProject: (id, updates) =>
+        set(s => ({
+          projects: s.projects.map(p =>
+            p.id === id ? { ...p, ...updates, updatedAt: new Date().toISOString() } : p
+          ),
+        })),
 
       setActiveProject: (id) => set({ activeProjectId: id, activeThreadId: null }),
 
       getActiveProject: () => {
         const { projects, activeProjectId } = get()
         return projects.find((p) => p.id === activeProjectId) ?? null
+      },
+
+      createWorkbenchProject: async (name) => {
+        const ts = Date.now()
+        const projectId = `proj-${ts}`
+        const display = name.trim() || 'Untitled'
+        const project: Project = {
+          id: projectId,
+          name: display,
+          brand: {
+            id: `brand-${ts}`,
+            name: display,
+            description: '',
+            audience: '',
+            tone: 'friendly',
+            contentStyle: '',
+            topics: [],
+            platforms: [],
+            knowledgeDocs: [],
+            mindsConversationAlias: '',
+            mindId: '',
+            createdAt: new Date().toISOString(),
+          },
+          threads: [],
+          posts: [],
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+        }
+        get().addProject(project)
+        get().ensureCanvas(projectId)
+        return { projectId }
+      },
+
+      ensureMindsForProject: async (projectId) => {
+        const project = get().projects.find(p => p.id === projectId)
+        if (!project) return { ok: false, error: 'Project not found' }
+        const existing = project.brand.mindsConversationAlias?.trim()
+        if (existing) return { ok: true, alias: existing }
+
+        const slug = (project.name || project.brand.name || 'project')
+          .trim().toLowerCase().replace(/[^a-z0-9]+/g, '-').slice(0, 24) || 'project'
+        const alias = `chirp-${slug}-${Date.now()}`
+        try {
+          const res = await fetch('/api/minds/init', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ alias }),
+          })
+          const data = await res.json()
+          if (!res.ok || !data.alias) {
+            return { ok: false, error: data.error ?? `HTTP ${res.status}` }
+          }
+          set(s => ({
+            projects: s.projects.map(p =>
+              p.id === projectId
+                ? {
+                    ...p,
+                    updatedAt: new Date().toISOString(),
+                    brand: { ...p.brand, mindsConversationAlias: data.alias as string },
+                  }
+                : p
+            ),
+          }))
+          return { ok: true, alias: data.alias as string }
+        } catch (e) {
+          return { ok: false, error: String(e) }
+        }
       },
 
       setActiveThread: (id) => set({ activeThreadId: id }),
@@ -292,13 +575,30 @@ export const useMingStore = create<MingStore>()(
         })),
 
       updatePost: (projectId, postId, updates) =>
-        set((s) => ({
-          projects: s.projects.map((p) =>
-            p.id === projectId
-              ? { ...p, posts: p.posts.map((post) => (post.id === postId ? { ...post, ...updates } : post)) }
-              : p
-          ),
-        })),
+        set((s) => {
+          const before = s.projects.find(p => p.id === projectId)?.posts.find(p => p.id === postId)
+          const next: Partial<MingStore> = {
+            projects: s.projects.map((p) =>
+              p.id === projectId
+                ? { ...p, posts: p.posts.map((post) => (post.id === postId ? { ...post, ...updates } : post)) }
+                : p
+            ),
+          }
+          // Auto-log schedule / publish transitions into the activity feed
+          if (before && updates.status && updates.status !== before.status) {
+            const type = updates.status === 'scheduled' ? 'schedule' : updates.status === 'published' ? 'publish' : null
+            if (type) {
+              const evt: ActivityEvent = {
+                id: `act-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+                projectId, ts: Date.now(), type, source: 'real',
+                title: type === 'schedule' ? `Scheduled "${before.title}"` : `Published "${before.title}"`,
+                platform: before.platform,
+              }
+              next.activityLog = { ...s.activityLog, [projectId]: [evt, ...(s.activityLog[projectId] ?? [])].slice(0, 100) }
+            }
+          }
+          return next
+        }),
 
       addTodo: (item) => set(s => ({ todos: [...s.todos, item] })),
       toggleTodo: (id) => set(s => ({ todos: s.todos.map(t => t.id === id ? { ...t, done: !t.done } : t) })),
@@ -328,9 +628,6 @@ export const useMingStore = create<MingStore>()(
             [projectId]: { ...s.communityState[projectId], ...state },
           }
         })),
-
-      completeTour: (projectId) =>
-        set(s => ({ touredProjects: s.touredProjects.includes(projectId) ? s.touredProjects : [...s.touredProjects, projectId] })),
 
       setLang: (lang) => set({ lang }),
 
@@ -379,6 +676,23 @@ export const useMingStore = create<MingStore>()(
             [projectId]: { ...(s.platformHandles[projectId] ?? {}), [platformId]: handle },
           },
         })),
+      connectPlatform: (projectId, account) =>
+        set(s => ({
+          platformAccounts: {
+            ...s.platformAccounts,
+            [projectId]: { ...(s.platformAccounts[projectId] ?? {}), [account.platformId]: account },
+          },
+          platformHandles: {
+            ...s.platformHandles,
+            [projectId]: { ...(s.platformHandles[projectId] ?? {}), [account.platformId]: account.handle },
+          },
+        })),
+      disconnectPlatform: (projectId, platformId) =>
+        set(s => {
+          const acc = { ...(s.platformAccounts[projectId] ?? {}) }
+          delete acc[platformId]
+          return { platformAccounts: { ...s.platformAccounts, [projectId]: acc } }
+        }),
       toggleAutoPlatform: (projectId, platformId) =>
         set(s => {
           const current = s.autoPlatforms[projectId] ?? []
@@ -391,9 +705,64 @@ export const useMingStore = create<MingStore>()(
         set(s => ({ assetEdges: { ...s.assetEdges, [projectId]: edges } })),
       setInsights: (projectId, insights) =>
         set(s => ({ insights: { ...s.insights, [projectId]: insights } })),
+
+      logActivity: (projectId, event) =>
+        set(s => ({
+          activityLog: {
+            ...s.activityLog,
+            [projectId]: [
+              { ...event, id: `act-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`, projectId, ts: Date.now(), source: event.source ?? 'real' },
+              ...(s.activityLog[projectId] ?? []),
+            ].slice(0, 100),
+          },
+        })),
+
+      startJob: (job) => {
+        const id = `job-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`
+        set(s => ({ jobs: [...s.jobs, { ...job, id, stage: 0, startedAt: Date.now() }] }))
+        return id
+      },
+      setJobStage: (id, stage) =>
+        set(s => ({ jobs: s.jobs.map(j => (j.id === id ? { ...j, stage } : j)) })),
+      finishJob: (id) =>
+        set(s => ({ jobs: s.jobs.filter(j => j.id !== id) })),
+
+      addMember: (member) =>
+        set(s => {
+          const list = s.members[member.projectId] ?? []
+          if (list.some(m => m.id === member.id)) return s
+          return { members: { ...s.members, [member.projectId]: [...list, member] } }
+        }),
+      removeMember: (projectId, memberId) =>
+        set(s => ({
+          members: {
+            ...s.members,
+            [projectId]: (s.members[projectId] ?? []).filter(m => m.id !== memberId),
+          },
+        })),
+      setMemberStatus: (projectId, memberId, status, focus) =>
+        set(s => ({
+          members: {
+            ...s.members,
+            [projectId]: (s.members[projectId] ?? []).map(m =>
+              m.id === memberId ? { ...m, status, ...(focus !== undefined ? { focus } : {}) } : m
+            ),
+          },
+        })),
+      ensureInviteCode: (projectId) => {
+        const existing = get().inviteCodes[projectId]
+        if (existing) return existing
+        const code = Math.random().toString(36).slice(2, 8).toUpperCase()
+        set(s => ({ inviteCodes: { ...s.inviteCodes, [projectId]: code } }))
+        return code
+      },
     }),
     {
       name: 'chirp-store',
+      partialize: (s) => {
+        const { jobs, activityActorFilter, ...rest } = s
+        return rest
+      },
     }
   )
 )
