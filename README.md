@@ -1,22 +1,30 @@
-<div align="center">
-  <img src="public/logo.png" alt="Chirp" width="110" />
-  &nbsp;&nbsp;&nbsp;
-  <img src="public/agents/minds.svg" alt="Minds" width="44" />
-  <h1>Chirp</h1>
-  <p><strong>Orchestrate content, don’t just generate it.</strong></p>
-  <p>One canvas: Knowledge → Marketing → Repurpose → Schedule.</p>
-
-  <p>
-    <img alt="Next.js" src="https://img.shields.io/badge/Next.js-16-black" />
-    <img alt="React" src="https://img.shields.io/badge/React-19-149eca" />
-    <img alt="TypeScript" src="https://img.shields.io/badge/TypeScript-5-3178c6" />
-    <img alt="React Flow" src="https://img.shields.io/badge/React%20Flow-12-ff0072" />
-    <img alt="Zustand" src="https://img.shields.io/badge/Zustand-5-443e38" />
-    <img alt="Vercel" src="https://img.shields.io/badge/Deploy-Vercel-000" />
-  </p>
-
-  <p><em>中文摘要：一张画布跑通内容工作流，Agent 直接驱动，知识、角度、文案、排期全程可复用。</em></p>
-</div>
+<table>
+  <tr>
+    <td valign="middle" width="460">
+      <p>
+        <img src="public/logo.png" alt="Chirp" width="160" valign="middle" />
+        &nbsp;
+        <strong style="font-size:40px">+</strong>
+        &nbsp;
+        <img src="public/agents/minds.svg" alt="Minds" width="96" valign="middle" />
+      </p>
+    </td>
+    <td valign="middle">
+      <h1>Chirp</h1>
+      <p><strong>Orchestrate content, don’t just generate it.</strong></p>
+      <p>One canvas: Knowledge → Marketing → Repurpose → Schedule.</p>
+      <p>
+        <img alt="Next.js" src="https://img.shields.io/badge/Next.js-16-black" />
+        <img alt="React" src="https://img.shields.io/badge/React-19-149eca" />
+        <img alt="TypeScript" src="https://img.shields.io/badge/TypeScript-5-3178c6" />
+        <img alt="React Flow" src="https://img.shields.io/badge/React%20Flow-12-ff0072" />
+        <img alt="Zustand" src="https://img.shields.io/badge/Zustand-5-443e38" />
+        <img alt="Vercel" src="https://img.shields.io/badge/Deploy-Vercel-000" />
+      </p>
+      <p><em>中文摘要：一张画布跑通内容工作流，Agent 直接驱动，知识、角度、文案、排期全程可复用。</em></p>
+    </td>
+  </tr>
+</table>
 
 ---
 
