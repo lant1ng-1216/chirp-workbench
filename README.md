@@ -1,7 +1,7 @@
 <div align="center">
-  <img src="public/logo.png" alt="Chirp" width="120" />
-  &nbsp;&nbsp;
-  <img src="public/minds-logo.png" alt="Minds" height="28" />
+  <img src="public/logo.png" alt="Chirp" width="110" />
+  &nbsp;&nbsp;&nbsp;
+  <img src="public/agents/minds.svg" alt="Minds" width="44" />
   <h1>Chirp</h1>
   <p><strong>Orchestrate content, don’t just generate it.</strong></p>
   <p>One canvas: Knowledge → Marketing → Repurpose → Schedule.</p>
@@ -15,67 +15,71 @@
     <img alt="Vercel" src="https://img.shields.io/badge/Deploy-Vercel-000" />
   </p>
 
-  <p><em>中文摘要：一张画布跑通内容工作流，Agent 直接驱动。</em></p>
+  <p><em>中文摘要：一张画布跑通内容工作流，Agent 直接驱动，知识、角度、文案、排期全程可复用。</em></p>
 </div>
 
 ---
 
-## Quick Start
+## The Problem — Context Hell
 
-```bash
-pnpm install
-pnpm dev
+Content strategy today lives in fragments: a ChatGPT thread here, a Telegram brainstorm there, a Notion doc nobody reopens. Every new campaign starts from zero — no shared state, no compounding knowledge, no traceable path from idea to published post.
+
+- **Scattered context** — brand voice, audience insight, and past decisions are spread across tools that don’t talk to each other.
+- **Restart every time** — each conversation re-explains the product from scratch; nothing accumulates.
+- **No provenance** — when a post ships, nobody can trace which insight produced it, or reuse that insight for the next one.
+
+## The Insight — Orchestration, not generation
+
+AI short-drama teams don’t stop at a single image-model call — they orchestrate an entire episode inside a workbench: characters, shots, voiceover, editing, all as one connected pipeline. Content creation deserves the same treatment.
+
+Chirp is a **vertical workbench for content creators**, built on **Minds**. Brand knowledge, marketing angles, cross-platform repurposing, and scheduling become one executable chain — not four separate prompts.
+
+**Market & vision**
+
+- The creator economy needs **reusable, collaborative, measurable** content operations — not another chat window.
+- A canvas-first core is built for **integration and extension**: scheduling, publishing, analytics loops, team collaboration, more platforms.
+- **Vision:** Chirp is the **orchestration layer** for content — models (Minds) upstream, publishing and operations downstream, and a durable, reusable knowledge layer in between.
+
+```mermaid
+flowchart TB
+  subgraph Upstream["Model capabilities"]
+    M[Minds<br/>generation + structuring]
+  end
+  subgraph Chirp["Chirp — orchestration layer"]
+    C[Canvas<br/>nodes + edges]
+    A[Agent<br/>intent routing + guardrails]
+    S[State<br/>Zustand + persistence]
+  end
+  subgraph Downstream["Publishing & operations"]
+    P[Platforms<br/>YT / IG / TT / X]
+    SC[Schedule board<br/>tasks + slots]
+  end
+  M --> A
+  A --> C
+  C --> S
+  S --> P
+  S --> SC
 ```
 
-Requires:
-
-```bash
-MINDS_BUILDER_API_KEY=...
-MINDS_MIND_ID=...
-```
+## The Product — One canvas, one agent
 
 <p align="center">
-  <img src="docs/images/hero.png" alt="Chirp canvas workbench" width="680" />
+  <img src="public/landing/canvas-graph.png" alt="Chirp canvas workbench — knowledge, marketing, repurpose, schedule nodes connected as a graph" width="860" />
 </p>
 
-## Problem — Context Hell
+Everything happens in one place, driven by one agent:
 
-Strategy lives in scattered chat threads, Telegram groups, and docs. Every conversation feels like a **restart** — no shared state, no reusable output, manual scheduling.
+- **Plan** — describe the goal, get a step-by-step plan with canvas suggestions. `/plan`
+- **Angles** — generate 3 marketing angles grounded in your brand knowledge. `/angles`
+- **Apply** — land the plan as real nodes and edges on the canvas. `/apply`
+- **Run** — execute the pipeline in dependency order; nodes fill with content. `/run`
+- **Schedule** — open the Schedule · Tasks board with suggested slots. `/schedule`
 
-| Before | After |
-| --- | --- |
-| Fragments across Chat / TG / docs | One executable canvas workflow |
-| Re-generate from scratch each time | Knowledge, angles, copy, schedule compound |
-| Manual, untraceable handoffs | Dependencies and provenance on the graph |
-
-## Why vertical, not “just call a model”
-
-AI short-drama teams don’t stop at a single image call — they **orchestrate** an entire episode in a workbench. Content creation is the same. Chirp is a **vertical workbench for content creators**, built on **Minds**: brand knowledge, marketing angles, cross-platform repurposing, and scheduling become one executable chain.
-
-<details>
-<summary><strong>Market &amp; vision</strong></summary>
-
-- The creator economy needs **reusable, collaborative, measurable** content operations, not scattered generation.
-- A canvas-first core supports **integration and extension**: scheduling, publishing, analytics loops, collaboration, more platforms.
-- **Vision:** the **orchestration layer** for content — models upstream, publishing/ops downstream, and a durable layer of reusable knowledge in between.
+## How it works
 
 <p align="center">
-  <img src="docs/images/orchestration-layer.png" alt="Chirp as the orchestration layer" width="680" />
+  <img src="public/landing/plan-apply-run.png" alt="Plan, apply, run — the Chirp workflow" width="860" />
 </p>
-
-</details>
-
-## What you can do
-
-| Capability | What you get | Command |
-| --- | --- | --- |
-| Plan | Step-by-step plan (direction / steps / canvas suggestions) | `/plan` |
-| Angles | 3 marketing angles written into a marketing node | `/angles` |
-| Apply | Land the plan as nodes + edges | `/apply` |
-| Run | Execute the pipeline by dependency order | `/run` |
-| Schedule | Open the Schedule · Tasks board (schedule-only) | `/schedule` |
-
-## Architecture
 
 ```mermaid
 flowchart LR
@@ -90,8 +94,7 @@ flowchart LR
   S --> EX[Pack Export / Knowledge Base]
 ```
 
-<details>
-<summary><strong>Data flow &amp; domain model</strong></summary>
+A typical session, end to end:
 
 ```mermaid
 sequenceDiagram
@@ -103,7 +106,7 @@ sequenceDiagram
   participant C as Canvas
   participant B as Schedule Board
 
-  U->>A: "Help me build a content workflow"
+  U->>A: "Build a content workflow for the launch"
   A->>R: classify intent
   R-->>A: canvas_apply
   A->>M: buildPlanApplyPrompt(conversation)
@@ -116,6 +119,8 @@ sequenceDiagram
   U->>A: /schedule
   A->>B: open board + suggest tasks from repurpose
 ```
+
+The domain model is deliberately simple — one node type, rich payloads:
 
 ```mermaid
 classDiagram
@@ -141,42 +146,51 @@ classDiagram
   CanvasNodeData --> MarketingAngle
 ```
 
-</details>
+## Cross-platform by default
+
+<p align="center">
+  <img src="public/landing/four-platforms.png" alt="One brief repurposed for YouTube, Instagram, TikTok, and X" width="860" />
+</p>
+
+A single marketing angle becomes four platform-native deliverables — a YouTube hook, an Instagram caption, a TikTok script, an X post — each respecting the platform’s tone and format, all traceable back to the same source insight.
 
 ## Engineering depth
 
-<details>
-<summary><strong>Intent routing, structured generation, guardrails, persistence, testing</strong></summary>
+**Intent routing & canvas awareness.** Slash commands plus regex classification map free-form messages to `chat | plan | deliverable_angles | canvas_apply | canvas_run | canvas_schedule | help`. A canvas context builder (`buildCanvasContext`) injects node kinds, counts, current selection, knowledge entries, and board tasks into every prompt, so the agent always sees what you see.
 
-- **Intent routing & canvas awareness** — slash commands + regex map to `chat | plan | deliverable_angles | canvas_apply | canvas_run | canvas_schedule | help`; a canvas context (`buildCanvasContext`) injects node kinds, counts, selection, knowledge entries, and board tasks into prompts.
-- **Structured generation with parse + repair** — knowledge cards, marketing `angles[]`, and apply JSON are parsed and repaired once on failure (`KNOWLEDGE_REPAIR_SUFFIX`, `MARKETING_REPAIR_SUFFIX`, `APPLY_REPAIR_SUFFIX`).
-- **Quality guardrails** — contract/ops chatter detection (`isContractMetaReply`) across chat/plan/marketing/apply; one repair, then a friendly on-topic fallback instead of surfacing PIVOT/TASK text. Prompt-level bans on TASK-prefix, contract IDs, PIVOT-Ops.
-- **State & persistence** — Zustand holds projects, canvases, knowledge entries, and board tasks, persisted to `localStorage` (`chirp-store`); per-project Minds conversation alias (`chirp-${slug}-${Date.now()}`) via `/api/minds/init`; pack export (JSON/Markdown).
-- **Reliability & testing** — timeouts + single-repair retries; typed failure modes (`marketing-unusable`, `apply-unusable`, `insufficient-upstream`); offline asserts in `scripts/assert-node-content.ts`; probe scripts `scripts/probe-node-quality.mjs`, `scripts/probe-matrix-full.mjs`.
+**Structured generation with parse + repair.** Knowledge cards, marketing `angles[]`, and apply-time workflow JSON are parsed strictly; on malformed output the agent retries once with a targeted repair suffix (`KNOWLEDGE_REPAIR_SUFFIX`, `MARKETING_REPAIR_SUFFIX`, `APPLY_REPAIR_SUFFIX`) instead of failing silently.
 
-</details>
+**Quality guardrails.** Contract/ops chatter detection (`isContractMetaReply`) runs across chat, plan, marketing, and apply paths. On detection the agent issues one repair; if the reply is still unusable, a friendly on-topic fallback is returned — PIVOT/TASK/contract text never reaches the user. Prompts additionally ban TASK-prefixes, contract IDs, and PIVOT-Ops outright.
+
+**State & persistence.** Zustand holds projects, canvases, knowledge entries, and board tasks, persisted to `localStorage` (`chirp-store`). Each project gets its own Minds conversation alias (`chirp-${slug}-${Date.now()}`) via `/api/minds/init`, keeping contexts isolated. A pack export produces JSON/Markdown snapshots of the whole workspace.
+
+**Reliability & testing.** Timeouts plus single-repair retries on every Minds call; typed failure modes (`marketing-unusable`, `apply-unusable`, `insufficient-upstream`) instead of generic errors. Offline structure asserts live in `scripts/assert-node-content.ts`, with live probes in `scripts/probe-node-quality.mjs` and `scripts/probe-matrix-full.mjs`.
 
 ## Quality & Reliability
 
-- Intent routing + structured parsing + repair
-- Ops-chatter guardrail so “task walls” never surface
-- Offline asserts for node content structure
+- Ops-chatter guardrail, so internal task text never surfaces to users
+- Parse-and-repair on all structured generation paths
+- Offline asserts for node content structure, runnable in CI
 
-## Deploy
+## Quick Start & Deploy
 
-Vercel: set the two Minds variables above. Same-origin env; avoid `NEXT_PUBLIC_APP_URL` unless you actually use it.
+```bash
+pnpm install
+pnpm dev
+```
 
-## Roadmap / Demo
+Environment:
 
-- Demo video (in progress)
+```bash
+MINDS_BUILDER_API_KEY=...
+MINDS_MIND_ID=...
+```
+
+On Vercel, set the same two variables. Same-origin env; avoid `NEXT_PUBLIC_APP_URL` unless you actually use it.
+
+## Roadmap · Demo · Team
+
+- Demo video — in progress
 - More platforms, team collaboration, publishing integrations
-
-## Team / Acknowledgements / Hackathon
-
-- Team: Chirp
-- Thanks: Minds by Animoca Brands, React Flow, Vercel
+- Team Chirp — thanks to Minds by Animoca Brands, React Flow, and Vercel
 - Built for a hackathon exploring vertical content-creation workflows on a canvas
-
----
-
-> Illustrations generated with Alibaba DashScope (Qwen-Image) in an IKEA-manual line style for this README.

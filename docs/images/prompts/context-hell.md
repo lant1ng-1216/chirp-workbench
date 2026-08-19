@@ -1,1 +1,0 @@
-Minimal before/after infographic, IKEA-manual line style. Left: scattered chat bubbles and docs (messy). Right: a single clean canvas flow (ordered). White background, thin black lines, one accent blue. Flat, ample whitespace, 16:9, no watermark, no photorealism.

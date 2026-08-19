@@ -1,1 +1,0 @@
-Minimal product infographic, IKEA-manual line style. White background, thin black outlines, one accent blue (#394F95). A horizontal canvas strip shows four connected nodes: Knowledge → Marketing → Repurpose → Schedule. A slim agent sidebar on the right. Flat, no gradients, no shadows, generous whitespace, 16:9, no watermark, no logos, no photorealism.
