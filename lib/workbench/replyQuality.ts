@@ -79,6 +79,12 @@ Your previous reply was a platform-repurpose JSON blob. That is wrong for Plan m
 Reply in plain language with: 1) direction 2) a 3–6 step plan 3) suggested canvas nodes (knowledge/asset/marketing/repurpose/schedule).
 Do NOT output youtube/instagram/tiktok/twitter JSON.`
 
+export const AGENT_CHAT_REPAIR_SUFFIX = `
+
+Your previous reply was ops/contract chatter (TASK-prefix, contract IDs, PIVOT-Ops) — that is never appropriate here.
+Reply as a normal, helpful assistant for this product: concise, on-topic to the user's request, and aligned with the canvas context if any.
+Do NOT mention TASK-prefix, contract confirmations, PIVOT-Ops, internal ops, or prior threads. No JSON unless explicitly asked.`
+
 export const APPLY_REPAIR_SUFFIX = `
 
 Your previous reply was NOT usable (ops/contract meta, or invalid workflow JSON).

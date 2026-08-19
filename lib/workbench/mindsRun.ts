@@ -12,6 +12,7 @@ import {
 import { buildPlanApplyPrompt, parsePlanApplyReply } from '@/lib/workbench/workflowBuild'
 import { buildAgentChatPrompt, buildPlanChatPrompt, normalizePlanMarkdown } from '@/lib/workbench/planFormat'
 import {
+  AGENT_CHAT_REPAIR_SUFFIX,
   APPLY_REPAIR_SUFFIX,
   isContractMetaReply,
   isPlausibleKnowledgeCard,
@@ -226,7 +227,25 @@ export async function agentChatViaMinds(
         : 'Got a repurpose JSON by mistake. Ask in chat, or use the Repurpose node.',
     }
   }
-  return { ok: true as const, text: r.text.trim() }
+  // Align with plan/marketing: do not surface contract/ops chatter (TASK-prefix, PIVOT-Ops).
+  if (!isContractMetaReply(r.text)) {
+    return { ok: true as const, text: r.text.trim() }
+  }
+  const repair = await sendAndWaitForReply(
+    alias,
+    prompt + AGENT_CHAT_REPAIR_SUFFIX + `\n\nPREVIOUS UNUSABLE REPLY:\n${r.text.slice(0, 600)}`,
+    MINDS_REPLY_TIMEOUT_MS,
+    onProgress,
+  )
+  if (repair.ok && repair.text && !isContractMetaReply(repair.text) && !looksLikeRepurposeJson(repair.text)) {
+    return { ok: true as const, text: repair.text.trim() }
+  }
+  return {
+    ok: true as const,
+    text: zh
+      ? '刚才那次回复串到了无关内容。请换种说法再问一次；要落到画布可直接点「应用到画布」或用 /apply、/plan。'
+      : 'That reply drifted into unrelated ops text. Please rephrase, or use Apply to canvas / /apply / /plan directly.',
+  }
 }
 
 /** Analyze an asset via existing /api/minds/analyze-asset (Minds under the hood). */

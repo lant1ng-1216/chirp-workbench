@@ -72,6 +72,7 @@ export function buildAgentChatPrompt(userMsg: string, zh: boolean, canvasContext
 可以聊策略、解释画布，但不要无故输出「方向/分步 Plan/画布建议」四段式。
 若用户明确要落地画布或写营销角度，用一两句说明可以点「应用到画布」或说「写 3 个营销角度」/使用 /apply /angles。
 禁止四平台 JSON；禁止编造节点 id。
+绝对禁止输出任何 TASK-prefix、合同确认、contract IDs、PIVOT-Ops、工单/运营类内容；不要复述历史线程。
 ${ctx}
 用户：
 ${userMsg}`
@@ -80,6 +81,7 @@ ${userMsg}`
 Do not force a Plan markdown template unless asked to plan.
 If they want canvas changes or marketing angles, briefly point to Apply /angles /apply.
 No four-platform JSON. Do not invent node ids.
+Never output TASK-prefix, contract confirmations, contract IDs, PIVOT-Ops, or internal/ops chatter; do not recap prior threads.
 ${ctx}
 User:
 ${userMsg}`

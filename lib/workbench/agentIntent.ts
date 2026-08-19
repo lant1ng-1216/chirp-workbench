@@ -74,9 +74,9 @@ export function classifyAgentIntent(raw: string): AgentIntent {
     return 'help'
   }
 
-  // Canvas act — strong verbs
+  // Canvas act — strong verbs / explicit build-a-workflow
   if (
-    /应用到画布|落到画布|生成工作流|搭(?:建)?(?:一条)?(?:工作流|链路)|apply\s+(to\s+)?canvas|materialize|build\s+(the\s+)?workflow/i.test(zh)
+    /应用到画布|落到画布|生成工作流|搭(?:建)?(?:一条)?(?:工作流|链路)|apply\s+(to\s+)?canvas|materialize|build\s+(the\s+)?workflow|build\s+(?:a\s+)?[\w\s-]*workflow|content\s+workflow|help\s+me\s+build/i.test(zh)
     || /\bapply\b/.test(t)
   ) {
     return 'canvas_apply'
