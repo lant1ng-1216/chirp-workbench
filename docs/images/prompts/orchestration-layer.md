@@ -1,0 +1,1 @@
+Minimal layered architecture infographic, IKEA-manual line style. Three horizontal layers: top "Model capabilities (Minds)", middle "Chirp orchestration layer (canvas, agent, state)", bottom "Publishing & operations". Thin arrows between layers. White background, black lines, one accent blue. Flat, clean, 16:9, no watermark, no photorealism.
