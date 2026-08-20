@@ -2,10 +2,8 @@
   <tr>
     <td valign="middle" width="460">
       <p>
-        <img src="public/logo.png" alt="Chirp" width="200" valign="middle" />
-        &nbsp;
-        <strong style="font-size:40px">+</strong>
-        &nbsp;
+        <img src="public/logo-trim.png" alt="Chirp" height="120" valign="middle" />
+        &nbsp;<strong style="font-size:36px">+</strong>&nbsp;
         <img src="public/agents/minds.svg" alt="Minds" width="88" valign="middle" />
       </p>
     </td>
