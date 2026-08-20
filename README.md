@@ -1,7 +1,7 @@
 <table>
   <tr>
-    <td valign="middle" width="460">
-      <img src="public/hero-logo.png" alt="Chirp + Minds" width="420" />
+    <td valign="middle" width="460" align="center">
+      <img src="public/logo-trim.png" alt="Chirp" height="180" />
     </td>
     <td valign="middle">
       <h1>Chirp</h1>
