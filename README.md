@@ -134,7 +134,7 @@ classDiagram
 ## Cross-platform by default
 
 <p align="center">
-  <img src="public/landing/four-platforms.png" alt="One brief repurposed for YouTube, Instagram, TikTok, and X" width="860" />
+  <img src="public/landing/write-once-channels.png" alt="Write once on the canvas, adapt for every channel — Note to YouTube, Instagram, TikTok, and X" width="860" />
 </p>
 
 A single marketing angle becomes four platform-native deliverables — a YouTube hook, an Instagram caption, a TikTok script, an X post — each respecting the platform’s tone and format, all traceable back to the same source insight.
