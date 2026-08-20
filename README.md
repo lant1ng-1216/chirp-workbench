@@ -42,26 +42,9 @@ Chirp is a **vertical workbench for content creators**, built on **Minds**. Bran
 - A canvas-first core is built for **integration and extension**: scheduling, publishing, analytics loops, team collaboration, more platforms.
 - **Vision:** Chirp is the **orchestration layer** for content — models (Minds) upstream, publishing and operations downstream, and a durable, reusable knowledge layer in between.
 
-```mermaid
-flowchart TB
-  subgraph Upstream["Model capabilities"]
-    M[Minds<br/>generation + structuring]
-  end
-  subgraph Chirp["Chirp — orchestration layer"]
-    C[Canvas<br/>nodes + edges]
-    A[Agent<br/>intent routing + guardrails]
-    S[State<br/>Zustand + persistence]
-  end
-  subgraph Downstream["Publishing & operations"]
-    P[Platforms<br/>YT / IG / TT / X]
-    SC[Schedule board<br/>tasks + slots]
-  end
-  M --> A
-  A --> C
-  C --> S
-  S --> P
-  S --> SC
-```
+<p align="center">
+  <img src="public/landing/orchestration-hero.png" alt="Chirp — canvas workbench powered by Minds" width="860" />
+</p>
 
 ## The Product — One canvas, one agent
 
