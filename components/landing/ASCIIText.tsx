@@ -220,11 +220,14 @@ class CanvasTxt {
     if (!this.context) return
     this.context.font = this.font
     const metrics = this.context.measureText(this.txt)
-    const textWidth = Math.ceil(metrics.width) + 20
+    // Extra pad so the final glyph (e.g. "p") is never clipped when font metrics settle late
+    const padX = 40
+    const padY = 28
+    const textWidth = Math.ceil(metrics.width) + padX * 2
     const ascent = metrics.actualBoundingBoxAscent || this.fontSize * 0.8
-    const descent = metrics.actualBoundingBoxDescent || this.fontSize * 0.2
+    const descent = metrics.actualBoundingBoxDescent || this.fontSize * 0.25
     this.canvas.width = Math.max(textWidth, 40)
-    this.canvas.height = Math.max(Math.ceil(ascent + descent) + 20, 40)
+    this.canvas.height = Math.max(Math.ceil(ascent + descent) + padY * 2, 40)
   }
 
   render() {
@@ -233,8 +236,10 @@ class CanvasTxt {
     this.context.fillStyle = this.color
     this.context.font = this.font
     const metrics = this.context.measureText(this.txt)
-    const yPos = 10 + (metrics.actualBoundingBoxAscent || this.fontSize * 0.8)
-    this.context.fillText(this.txt, 10, yPos)
+    const padX = 40
+    const padY = 28
+    const yPos = padY + (metrics.actualBoundingBoxAscent || this.fontSize * 0.8)
+    this.context.fillText(this.txt, padX, yPos)
   }
 
   get width() { return this.canvas.width }
@@ -265,6 +270,9 @@ class CanvAscii {
   center = { x: 0, y: 0 }
   animationFrameId = 0
   paused = false
+  measuredTextWidth = 0
+  remeshTimers: ReturnType<typeof setTimeout>[] = []
+  onFontsDone: (() => void) | null = null
 
   constructor(
     opts: {
@@ -295,24 +303,44 @@ class CanvAscii {
     this.onMouseMove = this.onMouseMove.bind(this)
   }
 
-  async init() {
+  /** Wait until IBM Plex Mono is actually usable for canvas measureText (not just fonts.ready). */
+  async waitForMonoFont(timeoutMs = 4000) {
+    const face = `600 ${this.textFontSize}px "IBM Plex Mono"`
+    const asciiFace = `500 ${this.asciiFontSize}px "IBM Plex Mono"`
     try {
-      await document.fonts.load(`600 ${this.textFontSize}px "IBM Plex Mono"`)
-      await document.fonts.load(`500 ${this.asciiFontSize}px "IBM Plex Mono"`)
-    } catch { /* fallback metrics */ }
-    await document.fonts.ready
+      await document.fonts.load(face)
+      await document.fonts.load(asciiFace)
+    } catch { /* continue polling */ }
+    const start = performance.now()
+    while (performance.now() - start < timeoutMs) {
+      if (document.fonts.check(face)) return true
+      await new Promise(r => setTimeout(r, 50))
+    }
+    try { await document.fonts.ready } catch { /* ignore */ }
+    return document.fonts.check(face)
+  }
+
+  async init() {
+    await this.waitForMonoFont()
     this.setMesh()
     this.setRenderer()
+    // Self-heal: font may finish swapping in after first paint — remesh if width jumps
+    requestAnimationFrame(() => { this.remeshIfMetricsChanged() })
+    this.remeshTimers.push(setTimeout(() => { this.remeshIfMetricsChanged() }, 200))
+    this.remeshTimers.push(setTimeout(() => { this.remeshIfMetricsChanged() }, 800))
+    this.onFontsDone = () => { this.remeshIfMetricsChanged() }
+    document.fonts.addEventListener('loadingdone', this.onFontsDone)
   }
 
   setMesh() {
     this.textCanvas = new CanvasTxt(this.textString, {
       fontSize: this.textFontSize,
-      fontFamily: 'IBM Plex Mono',
+      fontFamily: '"IBM Plex Mono", monospace',
       color: this.textColor,
     })
     this.textCanvas.resize()
     this.textCanvas.render()
+    this.measuredTextWidth = this.textCanvas.width
 
     this.texture = new THREE.CanvasTexture(this.textCanvas.texture)
     this.texture.minFilter = THREE.NearestFilter
@@ -338,13 +366,39 @@ class CanvAscii {
     this.scene.add(this.mesh)
   }
 
+  /** Rebuild text canvas + plane when font metrics finally settle (fixes clipped "p" on first load). */
+  remeshIfMetricsChanged() {
+    if (!this.textCanvas || !this.mesh) return
+    const prev = this.measuredTextWidth
+    this.textCanvas.resize()
+    this.textCanvas.render()
+    const next = this.textCanvas.width
+    // Ignore tiny jitter; rebuild when width moved > 2% (typical fallback→Plex Mono jump)
+    if (prev > 0 && Math.abs(next - prev) / prev < 0.02) {
+      this.texture.needsUpdate = true
+      return
+    }
+    this.measuredTextWidth = next
+    this.texture.dispose()
+    this.texture = new THREE.CanvasTexture(this.textCanvas.texture)
+    this.texture.minFilter = THREE.NearestFilter
+
+    const textAspect = this.textCanvas.width / this.textCanvas.height
+    const baseH = this.planeBaseHeight
+    const planeW = baseH * textAspect
+    this.geometry.dispose()
+    this.geometry = new THREE.PlaneGeometry(planeW, baseH, 36, 36)
+    this.mesh.geometry = this.geometry
+    ;(this.mesh.material as THREE.ShaderMaterial).uniforms.uTexture.value = this.texture
+  }
+
   setRenderer() {
     this.renderer = new THREE.WebGLRenderer({ antialias: false, alpha: true })
     this.renderer.setPixelRatio(1)
     this.renderer.setClearColor(0x000000, 0)
 
     this.filter = new AsciiFilter(this.renderer, {
-      fontFamily: 'IBM Plex Mono',
+      fontFamily: '"IBM Plex Mono", monospace',
       fontSize: this.asciiFontSize,
       invert: true,
     })
@@ -419,6 +473,12 @@ class CanvAscii {
   dispose() {
     cancelAnimationFrame(this.animationFrameId)
     this.animationFrameId = 0
+    for (const t of this.remeshTimers) clearTimeout(t)
+    this.remeshTimers = []
+    if (this.onFontsDone) {
+      document.fonts.removeEventListener('loadingdone', this.onFontsDone)
+      this.onFontsDone = null
+    }
     if (this.filter) {
       this.filter.dispose()
       if (this.filter.domElement.parentNode) {
@@ -524,7 +584,10 @@ export default function ASCIIText({
           const entry = entries[0]
           if (!entry || !ascii) return
           const { width: rw, height: rh } = entry.contentRect
-          if (rw > 8 && rh > 8) ascii.setSize(rw, rh)
+          if (rw > 8 && rh > 8) {
+            ascii.setSize(rw, rh)
+            ascii.remeshIfMetricsChanged()
+          }
         })
         resizeObs.observe(container)
       } catch (err) {
