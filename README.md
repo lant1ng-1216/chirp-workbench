@@ -167,7 +167,7 @@ Why this is a **core layer**, not a wrapper:
 - **Structured reuse across the chain.** Knowledge cards, marketing angles, and platform-native drafts are parsed, repaired, and reused — one insight fans out to YT / IG / TT / X instead of four disconnected chats.
 - **Product-owned context.** Per-project Minds conversations and persisted canvas state keep capability inside Chirp’s workbench, not in a disposable thread.
 
-That is the bar the [Minds Investment Programme](https://build.hellominds.ai/program) describes: early-stage teams where **Minds is a core product layer, not a wrapper**. Chirp is built to that standard.
+**Minds is a core product layer, not a wrapper**. Chirp is built to that standard.
 
 ## Roadmap · Demo · Team
 
