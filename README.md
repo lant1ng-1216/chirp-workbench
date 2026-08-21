@@ -173,5 +173,5 @@ Why this is a **core layer**, not a wrapper:
 
 - Demo video — in progress
 - More platforms, team collaboration, publishing integrations
-- Team Chirp — thanks to Minds by Animoca Brands, React Flow
+- Team Chirp — thanks to Minds by Animoca Brands
 - Built for a hackathon exploring vertical content-creation workflows on a canvas
