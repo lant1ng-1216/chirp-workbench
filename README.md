@@ -157,21 +157,17 @@ A single marketing angle becomes four platform-native deliverables — a YouTube
 - Parse-and-repair on all structured generation paths
 - Offline asserts for node content structure, runnable in CI
 
-## Quick Start & Deploy
+## Built on Minds — core layer, not a wrapper
 
-```bash
-pnpm install
-pnpm dev
-```
+Chirp treats **Minds** as the upstream product layer for generation and structuring — not a chat window bolted on at the edge. The canvas, agent routing, and schedule board are the orchestration surface; Minds is what makes each node’s content real.
 
-Environment:
+Why this is a **core layer**, not a wrapper:
 
-```bash
-MINDS_BUILDER_API_KEY=...
-MINDS_MIND_ID=...
-```
+- **Agent → canvas, not one-shot prompts.** Intent routing and guardrails land as real nodes and edges (`/plan`, `/apply`, `/run`, `/schedule`), so Minds output becomes durable workflow state.
+- **Structured reuse across the chain.** Knowledge cards, marketing angles, and platform-native drafts are parsed, repaired, and reused — one insight fans out to YT / IG / TT / X instead of four disconnected chats.
+- **Product-owned context.** Per-project Minds conversations and persisted canvas state keep capability inside Chirp’s workbench, not in a disposable thread.
 
-On Vercel, set the same two variables. Same-origin env; avoid `NEXT_PUBLIC_APP_URL` unless you actually use it.
+That is the bar the [Minds Investment Programme](https://build.hellominds.ai/program) describes: early-stage teams where **Minds is a core product layer, not a wrapper**. Chirp is built to that standard.
 
 ## Roadmap · Demo · Team
 
